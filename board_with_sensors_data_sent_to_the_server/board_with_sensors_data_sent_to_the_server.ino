@@ -4,22 +4,15 @@
 #include <WiFi.h>
 #include <WiFiClient.h>
 #include <HTTPClient.h>
-//#include <NTPClient.h>
-
-//#define NTP_OFFSET  19800 // In seconds
-//#define NTP_INTERVAL 60 * 1000    // In miliseconds
-//#define NTP_ADDRESS  "europe.pool.ntp.org"
-//WiFiUDP ntpUDP;
-//NTPClient timeClient(ntpUDP, NTP_ADDRESS, NTP_OFFSET, NTP_INTERVAL);
 
 HTTPClient http;
 
 const uint8_t tmin = 1;  // на сколько минут отправлять устройство в сон
 
-const char* ssid = "Sadovaya7";          // Замените на имя вашей Wi-Fi сети
-const char* password = "shadow_warrior";  // Замените на пароль от вашей Wi-Fi сети
+const char* ssid = "MyWiFi";          // Замените на имя вашей Wi-Fi сети
+const char* password = "mySecret";  // Замените на пароль от вашей Wi-Fi сети
 
-const char* baseUrl = "http://192.168.7.2/meteo/save.php"; // Замените на вашу базовую WEB-ссылку
+const char* baseUrl = "http://192.168.1.1/meteo/save.php"; // Замените на вашу базовую WEB-ссылку
 
 unsigned long lastCallTime = 0;
 unsigned long reboot_lastCallTime = 0;
@@ -63,11 +56,9 @@ void setup() {
 
   Serial.println("ESP32 starting up...");
   sensors.begin();
-//  timeClient.begin();
 
   configTime(0, 0, "europe.pool.ntp.org");
   setTimezone("CET-1CEST,M3.5.0,M10.5.0/3");
- // timeClient.update();
   String formattedTime = takeLocalTime();
   if(formattedTime == "failed")
   {

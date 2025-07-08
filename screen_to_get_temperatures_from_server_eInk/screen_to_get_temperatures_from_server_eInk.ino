@@ -39,30 +39,12 @@ StringAction s;
 // C:\Users\xxx\Documents\Arduino\hardware\espressif\esp32\variants\lolin32\pins_arduino.h
 GxIO_Class io(SPI, /*CS=5*/ SS, /*DC=*/ 17, /*RST=*/ 16); // arbitrary selection of 17, 16
 GxEPD_Class display(io, /*RST=*/ 16, /*BUSY=*/ 4); // arbitrary selection of (16), 4
-/*
-#define NTP_OFFSET  19800 // In seconds
-#define NTP_INTERVAL 60 * 1000    // In miliseconds
-#define NTP_ADDRESS  "europe.pool.ntp.org"
-*/
-/*
-WiFiUDP ntpUDP;
-const int oneWireBus = 15;
-OneWire oneWire(oneWireBus);
-DallasTemperature sensors(&oneWire);
-
-struct config {
-  uint8_t zadanie;
-} conf;
-*/
 
 const uint8_t tmin = 10;  // время обновления информации на экране
 
-const char* ssid     = "Sadovaya7";
-const char* password = "shadow_warrior";
-/*
-const int httpPort  = 80;
-const int httpsPort = 443;
-*/
+const char* ssid     = "MyWiFi";
+const char* password = "mySecret";
+
 uint8_t ConnectTimeout = 60;
 uint16_t v; int vref = 1100; // battery V
 RTC_DATA_ATTR uint32_t bootCount = 0;
@@ -75,8 +57,6 @@ void setup(void)
 {
   Serial.begin(115200);
   display.init();
-  //  display.init(115200); // enable diagnostic output on Serial
-   // disable diagnostic output on Serial
   Serial.println();
   Serial.print("boot counter: ");
   if(bootCount < 1) 
@@ -84,7 +64,6 @@ void setup(void)
     display.fillScreen(GxEPD_WHITE);
     display.setTextColor(GxEPD_BLACK);
     display.setRotation(1);
-//    display.updateWindow(0, 0, 250, 128, true);
     display.update();
   }
   Serial.println(++bootCount);
@@ -95,12 +74,6 @@ void setup(void)
   display.setTextColor(GxEPD_BLACK);
   display.setRotation(1);
 
-//  display.setFont(&FreeMonoBold12pt7b);
-//  display.setFont(&FreeSans9pt7b);
-//  display.setCursor(0, 45);
-//  display.print("Width     : "); display.println(display.width());
-//  display.print("Height    : "); display.println(display.height());
-//  display.print("Rotation : "); display.println(display.getRotation());
   display.drawLine(0, 31, 250, 31, 0);
   display.drawLine(125, 31, 125, 110, 0);
   display.drawLine(0, 110, 250, 110, 0);
@@ -108,17 +81,12 @@ void setup(void)
   v = analogRead(BATT_PIN);
   float battery_voltage = ((float)v / 4095.0) * 2.0 * 3.3 * (vref / 1000.0);
   String voltage = "" + String(battery_voltage) + "V";
-//  display.print("Battery   : "); display.printf("%2d%%\n", (int)map(battery_voltage, 2.75, 4.22, 0, 100));
-//  display.print("  "); display.print(analogRead(BATT_PIN)/565.32); display.print(" / "); display.println(voltage);
 
-//  display.drawBitmap(125, 0, fdv, 125, 125, 1);
   display.setFont(&Org_01);
   display.setCursor(60, 19);
   display.print(voltage); 
   Serial.print(voltage); 
-//  float battery_voltage_perc = 100-((battery_voltage-BATT_MIN)/(BATT_MAX-BATT_MIN)/100);
   float battery_voltage_perc = (100-((BATT_MAX - battery_voltage))/((BATT_MAX-BATT_MIN)/100));
-// float battery_voltage_perc = map(battery_voltage, BATT_MIN, BATT_MAX, 0, 100);
   display.printf(" / %.1f%%", battery_voltage_perc);
   Serial.printf(" / %f%% / %f / %d / %f\n", battery_voltage_perc, battery_voltage, v, v/565.32);
 
@@ -273,16 +241,6 @@ void setup(void)
     display.print("old data");
     display.updateWindow(170, 6, 79, 23, true);
   }
-/*
-  if(digitalRead(BTN))
-  {
-    display.fillScreen(GxEPD_WHITE);
-    display.setTextColor(GxEPD_BLACK);
-    display.setRotation(1);
-    display.updateWindow(0, 0, 250, 128, true);
-  }
-*/
-//  display.updateWindow(0, 0, 250, 128, true);
 
   WiFi.disconnect();
   display.powerDown();
