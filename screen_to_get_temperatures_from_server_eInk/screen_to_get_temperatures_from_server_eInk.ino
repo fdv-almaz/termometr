@@ -168,7 +168,7 @@ void setup(void)
 
   String data_arr[6];
   String payload;
-  http.begin("http://192.168.7.2/meteo/getlast.php");
+  http.begin("http://192.168.1.1/meteo/getlast.php");
   int httpCode = http.GET();
   if (httpCode == HTTP_CODE_OK) {
         payload = http.getString();
