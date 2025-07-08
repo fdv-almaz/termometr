@@ -1,21 +1,21 @@
 <?php
-    $ULcorr="-1.5";
-    $DOMcorr="+0";
+    require_once 'config.php';
+
     date_default_timezone_set('Europe/Warsaw');
     $curtime = date('Y-m-d H:i:s');
-    $conn = mysqli_connect("localhost", "user", "password", "database");
+    $conn = mysqli_connect($config['db_host'], $config['db_user'], $config['db_pass'], $config['db_name']);
     if (!$conn) {
-      die("Ошибка: " . mysqli_connect_error());
+      die("Error: " . mysqli_connect_error());
     }
     $sql = "SELECT * from data order by id desc limit 1;";
     $result = mysqli_query($conn, $sql);
     if(!$result){
-        echo "Ошибка: " . mysqli_error($conn);
+        echo "Error: " . mysqli_error($conn);
         exit;
     }
     $row = mysqli_fetch_assoc($result);
-    $ULstr = $row['tempUL'].$ULcorr;
-    $DOMstr = $row['tempDOM'].$DOMcorr;
+    $ULstr = $row['tempUL'].$config['ULcorr'];
+    $DOMstr = $row['tempDOM'].$config['DOMcorr'];
     $dev_id = $row['dev_id'];
 
     $CurTime = new DateTimeImmutable($curtime);
@@ -26,7 +26,7 @@
 
     if($seconds > 600) $dev_id = "--";
 
-    echo $dev_id . ',' . $row['inserted'] . ',' . eval("return $ULstr;") . ',' . eval("return $DOMstr;") . ',' . $ULcorr . ',' . $DOMcorr;
+    echo $dev_id . ',' . $row['inserted'] . ',' . eval("return $ULstr;") . ',' . eval("return $DOMstr;") . ',' . $config['ULcorr'] . ',' . $config['DOMcorr'];
 
     mysqli_close($conn);
 
