@@ -4,15 +4,27 @@
 #include <WiFi.h>
 #include <WiFiClient.h>
 #include <HTTPClient.h>
+#include <Wire.h>
+#include <SPI.h>
+#include <Adafruit_BMP280.h>
+
+#define BMP_SCK  (13)
+#define BMP_MISO (12)
+#define BMP_MOSI (11)
+#define BMP_CS   (10)
+
+Adafruit_BMP280 bmp; // use I2C interface
+Adafruit_Sensor *bmp_temp = bmp.getTemperatureSensor();
+Adafruit_Sensor *bmp_pressure = bmp.getPressureSensor();
 
 HTTPClient http;
 
 const uint8_t tmin = 1;  // на сколько минут отправлять устройство в сон
 
-const char* ssid = "MyWiFi";          // Замените на имя вашей Wi-Fi сети
-const char* password = "mySecret";  // Замените на пароль от вашей Wi-Fi сети
+const char* ssid = "Sadovaya7";          // Замените на имя вашей Wi-Fi сети
+const char* password = "shadow_warrior";  // Замените на пароль от вашей Wi-Fi сети
 
-const char* baseUrl = "http://192.168.1.1/meteo/save.php"; // Замените на вашу базовую WEB-ссылку
+const char* baseUrl = "http://192.168.7.2/meteo/save.php"; // Замените на вашу базовую WEB-ссылку
 
 unsigned long lastCallTime = 0;
 unsigned long reboot_lastCallTime = 0;
@@ -68,10 +80,12 @@ void setup() {
   }
   Serial.print("Time: ");
   Serial.println(formattedTime);
+  BMPinit();
 }
 
 void loop() {
   String formattedTime;
+
   // Проверяем, прошло ли достаточно времени с последнего вызова
   if (millis() - lastCallTime >= interval) {
     Serial.println("\n--- Time to send data! ---");
@@ -107,6 +121,10 @@ void loop() {
 }
 
 void callUrlWithDynamicData(float tempUL, float tempDOM, String devId, String dev_id) {
+  sensors_event_t temp_event, pressure_event;
+  bmp_temp->getEvent(&temp_event);
+  bmp_pressure->getEvent(&pressure_event);
+
   // 1. Подключаемся к Wi-Fi
   Serial.print("Connecting to WiFi: ");
   Serial.println(ssid);
@@ -132,7 +150,8 @@ void callUrlWithDynamicData(float tempUL, float tempDOM, String devId, String de
                      "&time=" + takeLocalTime() +
                      "&temperatureUL=" + String(tempUL, 1) +
                      "&temperatureDOM=" + String(tempDOM) +
-                     "&id=" + devId;
+                     "&id=" + devId + 
+                     "&press=" + String(pressure_event.pressure);
 
     Serial.print("Calling URL: ");
     Serial.println(fullUrl);
@@ -158,10 +177,56 @@ void callUrlWithDynamicData(float tempUL, float tempDOM, String devId, String de
   Serial.print("Disconnecting from WiFi...");
   WiFi.disconnect(true); // true = отключает Wi-Fi полностью, включая память SSID
   Serial.println(" Done.");
+
+  //getBMP();
 /*
   Serial.println("--- SLEEP ---");
   esp_sleep_enable_timer_wakeup(60000000*tmin);
   esp_deep_sleep_start();  
 */
 
+}
+
+void BMPinit(void)
+{
+   unsigned status;
+  //status = bmp.begin(BMP280_ADDRESS_ALT, BMP280_CHIPID);
+  status = bmp.begin(0x76);
+  if (!status) {
+    Serial.println(F("Could not find a valid BMP280 sensor, check wiring or "
+                      "try a different address!"));
+    Serial.print("SensorID was: 0x"); Serial.println(bmp.sensorID(),16);
+    Serial.print("        ID of 0xFF probably means a bad address, a BMP 180 or BMP 085\n");
+    Serial.print("   ID of 0x56-0x58 represents a BMP 280,\n");
+    Serial.print("        ID of 0x60 represents a BME 280.\n");
+    Serial.print("        ID of 0x61 represents a BME 680.\n");
+    //while (1) delay(10);
+    return;
+  }
+
+  /* Default settings from datasheet. */
+  bmp.setSampling(Adafruit_BMP280::MODE_NORMAL,     /* Operating Mode. */
+                  Adafruit_BMP280::SAMPLING_X2,     /* Temp. oversampling */
+                  Adafruit_BMP280::SAMPLING_X16,    /* Pressure oversampling */
+                  Adafruit_BMP280::FILTER_X16,      /* Filtering. */
+                  Adafruit_BMP280::STANDBY_MS_500); /* Standby time. */
+
+  bmp_temp->printSensorDetails();
+}
+
+void getBMP(void)
+{
+  sensors_event_t temp_event, pressure_event;
+  bmp_temp->getEvent(&temp_event);
+  bmp_pressure->getEvent(&pressure_event);
+  
+  Serial.print(F("Temperature = "));
+  Serial.print(temp_event.temperature);
+  Serial.println(" *C");
+
+  Serial.print(F("Pressure = "));
+  Serial.print(pressure_event.pressure);
+  Serial.println(" hPa");
+
+  Serial.println();
 }

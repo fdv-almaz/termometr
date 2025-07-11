@@ -1,5 +1,5 @@
 <?php
-    require_once 'config.php';
+    require_once 'db.php';
 
     date_default_timezone_set('Europe/Warsaw');
     $curtime = date('Y-m-d H:i:s');
@@ -7,16 +7,42 @@
     if (!$conn) {
       die("Error: " . mysqli_connect_error());
     }
+    $sql_config = "SELECT * from config";
     $sql = "SELECT * from data order by id desc limit 1;";
+    $result_config = mysqli_query($conn, $sql_config);
+    if(!$result_config){
+        echo "Error: " . mysqli_error($conn);
+        exit;
+    }
+
     $result = mysqli_query($conn, $sql);
     if(!$result){
         echo "Error: " . mysqli_error($conn);
         exit;
     }
+
+    while ($row_config = mysqli_fetch_assoc($result_config))
+    {
+       switch($row_config['param_name'])
+       {
+	    case "ULcorr":
+		$ULcorr = $row_config['param_data'];
+		break;
+	    case "DOMcorr":
+		$DOMcorr = $row_config['param_data'];
+		break;
+	    case "PRESScorr":
+		$PRESScorr = $row_config['param_data'];
+		break;
+       }
+    }
+
     $row = mysqli_fetch_assoc($result);
-    $ULstr = $row['tempUL'].$config['ULcorr'];
-    $DOMstr = $row['tempDOM'].$config['DOMcorr'];
+
+    $ULstr = $row['tempUL'].$ULcorr;
+    $DOMstr = $row['tempDOM'].$DOMcorr;
     $dev_id = $row['dev_id'];
+    $press = $row['pressure'].$PRESScorr;
 
     $CurTime = new DateTimeImmutable($curtime);
     $DBTime = new DateTimeImmutable($row['inserted']);
@@ -26,7 +52,7 @@
 
     if($seconds > 600) $dev_id = "--";
 
-    echo $dev_id . ',' . $row['inserted'] . ',' . eval("return $ULstr;") . ',' . eval("return $DOMstr;") . ',' . $config['ULcorr'] . ',' . $config['DOMcorr'];
+    echo $dev_id . ',' . $row['inserted'] . ',' . eval("return $ULstr;") . ',' . eval("return $DOMstr;") . ',' . $ULcorr . ',' . $DOMcorr . ',' . eval("return $press;");
 
     mysqli_close($conn);
 

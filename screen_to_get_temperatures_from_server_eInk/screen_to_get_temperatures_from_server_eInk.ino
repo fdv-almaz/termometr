@@ -42,8 +42,8 @@ GxEPD_Class display(io, /*RST=*/ 16, /*BUSY=*/ 4); // arbitrary selection of (16
 
 const uint8_t tmin = 10;  // время обновления информации на экране
 
-const char* ssid     = "MyWiFi";
-const char* password = "mySecret";
+const char* ssid     = "Sadovaya7";
+const char* password = "shadow_warrior";
 
 uint8_t ConnectTimeout = 60;
 uint16_t v; int vref = 1100; // battery V
@@ -166,9 +166,9 @@ void setup(void)
   if(rssi <= -75)
    display.drawBitmap(217, 6, wifiSignal100, 32, 23, GxEPD_BLACK);
 
-  String data_arr[6];
+  String data_arr[7];
   String payload;
-  http.begin("http://192.168.1.1/meteo/getlast.php");
+  http.begin("http://192.168.7.2/meteo/getlast.php");
   int httpCode = http.GET();
   if (httpCode == HTTP_CODE_OK) {
         payload = http.getString();
@@ -225,6 +225,16 @@ void setup(void)
     display.setCursor(165, 100);
     display.print("correction: ");
     display.print(data_arr[5]);
+  }
+  if(data_arr[6] != "0")
+  {
+    display.setRotation(0);  // vertical text
+    display.setCursor(34, 241);
+//    display.print(data_arr[6]);
+    display.printf("%-4.02f hPa", data_arr[6].toFloat()); // pressure
+    display.setRotation(1);
+
+//    display.print("hPa");
   }
 
   display.updateWindow(0, 0, 250, 128, true);
