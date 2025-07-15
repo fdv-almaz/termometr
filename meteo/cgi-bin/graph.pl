@@ -3,12 +3,13 @@
 use strict;
 use warnings;
 use CGI;
+use CGI::Cache;
 use GD;
 use DBI;
 use Switch 'fallthrough';
 
 my $i=0;
-my $x = 1700;
+my $x = 1400;
 my $y = 500;
 my $y_zoom = 40;
 my $y_offset = 50;
@@ -18,11 +19,12 @@ my %config = ( 	ULcorr    => '+0',
 		PRESScorr => '+0' );
 
 my $host   = "localhost"; 
-my $database = "database";
-my $userid   = "username";
-my $password = "password";
+my $database = "meteo";
+my $userid   = "meteo";
+my $password = "meteo";
 
-print "Content-type: image/png\n\n";
+#print "Content-type: image/png\n\n";
+CGI::Cache::stop();
 
 my $image = GD::Image->new($x, $y);
 
@@ -34,13 +36,30 @@ my $grey = $image->colorAllocate(120,120,120);
 my $lightGrey = $image->colorAllocate(180,180,180);
 my $darkGrey = $image->colorAllocate(50,50,50);
 
+my $q = CGI->new;
+print $q->header(
+    -type    => 'image/png',
+    -expires => '+1m',
+);
 
 my $dbh = DBI->connect("DBI:mysql:database=$database;host=$host",
                        $userid, $password,
                        {'RaiseError' => 1});
 
-my $sth = $dbh->prepare("SELECT id, pressure FROM data WHERE DATE(inserted) = DATE(CURDATE())");
+my $sth;
+my $QUERY;
+my $param = $q->param('date');
+if($param)
+{
+    $QUERY = "SELECT id, pressure FROM data WHERE DATE(inserted) = '$param'";
+}
+else
+{
+    $QUERY = "SELECT id, pressure FROM data WHERE DATE(inserted) = DATE(CURDATE())";
+}
+$sth = $dbh->prepare($QUERY);
 $sth->execute();
+
 my $cth = $dbh->prepare("SELECT * FROM config");
 $cth->execute();
 
@@ -70,6 +89,15 @@ while (my $ref = $sth->fetchrow_hashref())
 $image->filledRectangle(0,0,$x,35, $white);
 # gdGiantFont, gdLargeFont, gdMediumBoldFont, gdSmallFont and gdTinyFont
 $image->string(gdGiantFont, ($x/2)-70, 10, "PRESSURE", $blue);
+if($param)
+{
+    $image->string(gdMediumBoldFont, 20, 10, $param, $blue);
+}
+else
+{
+    $image->string(gdMediumBoldFont, 20, 10, "TODAY", $blue);
+
+}
 $image->string(gdMediumBoldFont, $x-70, 10, $press+$config{'PRESScorr'}, $blue);
 
 $sth->finish();
