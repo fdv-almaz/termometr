@@ -9,22 +9,21 @@ use DBI;
 use Switch 'fallthrough';
 
 my $i=0;
-my $x = 1400;
+my $x = 1500; # 1334
 my $y = 500;
 my $y_zoom = 40;
-my $y_offset = 50;
+my $y_offset = 130;
 my $press;
 my %config = ( 	ULcorr    => '+0',
 		DOMcorr   => '+0',
 		PRESScorr => '+0' );
 
 my $host   = "localhost"; 
-my $database = "meteo";
-my $userid   = "meteo";
-my $password = "meteo";
+my $database = "db";
+my $userid   = "login";
+my $password = "password";
 
 #print "Content-type: image/png\n\n";
-CGI::Cache::stop();
 
 my $image = GD::Image->new($x, $y);
 
@@ -41,6 +40,7 @@ print $q->header(
     -type    => 'image/png',
     -expires => '+1m',
 );
+CGI::Cache::stop();
 
 my $dbh = DBI->connect("DBI:mysql:database=$database;host=$host",
                        $userid, $password,
