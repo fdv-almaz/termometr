@@ -2,11 +2,12 @@
 
 use strict;
 use warnings;
-use CGI;
+use CGI qw(:standard);
 use CGI::Cache;
 use GD;
 use DBI;
 use Switch 'fallthrough';
+use MIME::Base64;
 
 my $i=0;
 my $x = 1500; # 1334
@@ -36,10 +37,20 @@ my $lightGrey = $image->colorAllocate(180,180,180);
 my $darkGrey = $image->colorAllocate(50,50,50);
 
 my $q = CGI->new;
-print $q->header(
-    -type    => 'image/png',
-    -expires => '+1m',
+print $q->header('text/html; charset=utf-8');
+#print $q->start_html('PRESSURE');
+print $q->start_html(
+	-title  => 'PRESSURE',
+	-bgcolor  => "#101010"
 );
+
+print h1({style => "color: white;"}, 'Добро пожаловать на мой сайт!');
+#print p('Это контент, сгенерированный Perl CGI.');
+
+#print $q->header(
+#    -type    => 'image/png',
+#    -expires => '+1m',
+#);
 CGI::Cache::stop();
 
 my $dbh = DBI->connect("DBI:mysql:database=$database;host=$host",
@@ -73,7 +84,7 @@ while (my $ref_config = $cth->fetchrow_hashref())
     }
 }
 
-$image->transparent($white);
+$image->transparent($black);
 $image->fill(50,50,$darkGrey);
 $image->interlaced('true');
 
@@ -87,7 +98,7 @@ while (my $ref = $sth->fetchrow_hashref())
 }
 
 $image->filledRectangle(0,0,$x,35, $white);
-# gdGiantFont, gdLargeFont, gdMediumBoldFont, gdSmallFont and gdTinyFont
+# FONTS: gdGiantFont, gdLargeFont, gdMediumBoldFont, gdSmallFont and gdTinyFont
 $image->string(gdGiantFont, ($x/2)-70, 10, "PRESSURE", $blue);
 if($param)
 {
@@ -106,4 +117,17 @@ $dbh->disconnect();
 # make sure we are writing to a binary stream
 binmode STDOUT;
 # Convert the image to PNG and print it on standard output
-print $image->png;
+
+my $png_data = $image->png;
+my $encoded_data = encode_base64($png_data, '');
+my $data_uri = "data:image/png;base64," . $encoded_data;
+print p(
+    img({
+	    src => $data_uri,
+	    style => "display: block; margin-left: auto; margin-right: auto;"
+    })
+);
+
+
+print $q->end_html;
+
