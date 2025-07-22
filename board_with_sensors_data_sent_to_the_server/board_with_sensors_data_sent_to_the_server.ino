@@ -87,7 +87,7 @@ void loop() {
   String formattedTime;
 
   // Проверяем, прошло ли достаточно времени с последнего вызова
-  if (millis() - lastCallTime >= interval) {
+  /*if (millis() - lastCallTime >= interval)*/ {
     Serial.println("\n--- Time to send data! ---");
 
     // --- Обновление динамических данных (пример) ---
@@ -179,12 +179,10 @@ void callUrlWithDynamicData(float tempUL, float tempDOM, String devId, String de
   Serial.println(" Done.");
 
   //getBMP();
-/*
+
   Serial.println("--- SLEEP ---");
   esp_sleep_enable_timer_wakeup(60000000*tmin);
   esp_deep_sleep_start();  
-*/
-
 }
 
 void BMPinit(void)

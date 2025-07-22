@@ -45,8 +45,6 @@ print $q->start_html(
 );
 
 print h1({style => "color: white;"}, 'Добро пожаловать на мой сайт!');
-#print p('Это контент, сгенерированный Perl CGI.');
-
 #print $q->header(
 #    -type    => 'image/png',
 #    -expires => '+1m',
