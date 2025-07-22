@@ -10,19 +10,19 @@ use Switch 'fallthrough';
 use MIME::Base64;
 
 my $i=0;
-my $x = 1500; # 1334
-my $y = 500;
-my $y_zoom = 40;
-my $y_offset = 130;
+my $x = 1500; 
+my $y = 800;
+my $y_zoom = 30;
+my $y_offset = 500;
 my $press;
 my %config = ( 	ULcorr    => '+0',
 		DOMcorr   => '+0',
 		PRESScorr => '+0' );
 
 my $host   = "localhost"; 
-my $database = "meteo";
-my $userid   = "meteo";
-my $password = "meteo";
+my $database = "DB";
+my $userid   = "user";
+my $password = "pass";
 
 #print "Content-type: image/png\n\n";
 
