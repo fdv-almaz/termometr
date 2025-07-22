@@ -9,9 +9,11 @@ use DBI;
 use Switch 'fallthrough';
 use MIME::Base64;
 
-my $i=0;
+my $i = 0;
+my $ii = 0;
 my $x = 1500; 
 my $y = 800;
+my $scale_height = 30;
 my $y_zoom = 30;
 my $y_offset = 500;
 my $press;
@@ -20,13 +22,13 @@ my %config = ( 	ULcorr    => '+0',
 		PRESScorr => '+0' );
 
 my $host   = "localhost"; 
-my $database = "DB";
-my $userid   = "user";
-my $password = "pass";
+my $database = "meteo";
+my $userid   = "meteo";
+my $password = "meteo";
 
 #print "Content-type: image/png\n\n";
 
-my $image = GD::Image->new($x, $y);
+my $image = GD::Image->new($x, $y + $scale_height);
 
 my $white = $image->colorAllocate(255,255,255);
 my $black = $image->colorAllocate(0,0,0);
@@ -82,9 +84,12 @@ while (my $ref_config = $cth->fetchrow_hashref())
     }
 }
 
-$image->transparent($black);
-$image->fill(50,50,$darkGrey);
+#$image->transparent($black);
+#$image->fill(50,50,$black);
+$image->filledRectangle(0,0,$x,$y, $darkGrey); 			# Graph
+$image->filledRectangle(0,$y,$x,$y+$scale_height, $black); 	# Bottom scale
 $image->interlaced('true');
+
 
 while (my $ref = $sth->fetchrow_hashref())
 {
@@ -92,6 +97,11 @@ while (my $ref = $sth->fetchrow_hashref())
     my $yy = ($y-(($ref->{'pressure'} - 1000) * $y_zoom)) - $y_offset;
     $image->setPixel($i, $yy, $white);
     $image->line($i, $yy+1, $i, $y, $grey);
+    if($i % 60 == 0)
+    {
+	$image->line($i, $y, $i, $y+7, $white);
+	$image->string(gdMediumBoldFont, $i-3, $y+10, $ii++, $white);
+    }
     $i++;
 }
 
