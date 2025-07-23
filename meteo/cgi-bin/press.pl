@@ -8,6 +8,8 @@ use GD;
 use DBI;
 use Switch 'fallthrough';
 use MIME::Base64;
+use Data::Dumper;
+
 
 my $i = 0;
 my $ii = 0;
@@ -16,7 +18,8 @@ my $y = 800;
 my $scale_height = 30;
 my $y_zoom = 30;
 my $y_offset = 500;
-my $press;
+#my $press;
+my @data_arr;
 my %config = ( 	ULcorr    => '+0',
 		DOMcorr   => '+0',
 		PRESScorr => '+0' );
@@ -41,18 +44,32 @@ my $darkGrey = $image->colorAllocate(50,50,50);
 my $q = CGI->new;
 print $q->header(
 		-type =>'text/html',
-		-expires => 'now',
 		-charset => 'utf-8',
 		-Cache_control => 'no-cache, no-store, must-revalidate',
-		-Pragma => 'no-cache'
+		-Pragma => 'no-cache',
+		-expires => 'now'
 		);
 print $q->start_html(
 	-title  => 'PRESSURE',
 	-bgcolor  => "#101010"
 );
+print "\n<script>";
+print "function display_Graph_data()
+{
+  const image = document.getElementById('Graph');
+  image.addEventListener('click', function(event) {
+    const x = event.offsetX;
+    const y = event.offsetY;
+    let gd  = \"Street: \" + graph_data[x][1] + \", home: \" + graph_data[x][2] + \", pressure: \" + graph_data[x][3];
+    document.getElementById(\"H1\").textContent = `\${gd}`;
+  });
+
+}";
+print "</script>\n";
+
 my $param = $q->param('date');
 
-print h1({style => "width: 100%; color: white; text-align: center !important;"}, 'Just atmosphere pressure');
+print h1({style => "width: 100%; color: white; text-align: center !important;", id => "H1"} ,'Just atmosphere pressure');
 #print $q->header(
 #    -type    => 'image/png',
 #    -expires => '+1m',
@@ -77,14 +94,15 @@ sub draw_pressure_graph
     my $yy;
     my @datetime_arr;
     my $position;
+    my $press;
 
     if($param)
     {
-        $QUERY = "SELECT id, pressure, inserted FROM data WHERE DATE(inserted) = '$param'";
+        $QUERY = "SELECT id, tempUL, tempDOM, pressure, inserted FROM data WHERE DATE(inserted) = '$param'";
     }
     else
     {
-        $QUERY = "SELECT id, pressure, inserted FROM data WHERE DATE(inserted) = DATE(CURDATE())";
+        $QUERY = "SELECT id, tempUL, tempDOM, pressure, inserted FROM data WHERE DATE(inserted) = DATE(CURDATE())";
     }
     $sth = $dbh->prepare($QUERY);
     $sth->execute();
@@ -109,6 +127,7 @@ sub draw_pressure_graph
 	    $image->line($i, $y, $i, $y+7, $white);			# vertical lines
 	    $image->string(gdMediumBoldFont, $i-3, $y+10, $ii++, $white); # digits of hours
 	}
+	$data_arr[$i]=[$position, $ref->{'tempUL'}, $ref->{'tempDOM'}, $press];
         $i++;
     }
     $image->filledRectangle(0,0,$x,35, $white);				# head of graph
@@ -135,8 +154,25 @@ sub draw_pressure_graph
     print p(							# display the picture using HTML tag "img"
 	img({
 		src => $data_uri,
-		style => "display: block; margin-left: auto; margin-right: auto;"
+		style => "display: block; margin-left: auto; margin-right: auto;",
+		onmousemove => "display_Graph_data();",
+		id => "Graph"
     }));
+#print Dumper(@data_arr);
+
+
+
+print "\n<script>\nconst graph_data = [\n";
+foreach my $dta (@data_arr)
+ {
+#print Dumper($dta);
+    printf "[ %d, %.1f, %.1f, %.1f ],", @$dta[0], @$dta[1], @$dta[2], @$dta[3];
+ }
+print "];";
+
+print "\n</script>\n";
+
+
 }
 
 sub get_config
