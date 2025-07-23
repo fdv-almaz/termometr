@@ -39,12 +39,18 @@ my $darkGrey = $image->colorAllocate(50,50,50);
 #$image->transparent($black);
 
 my $q = CGI->new;
-print $q->header('text/html; charset=utf-8');
-print '<meta http-equiv="Cache-Control" content="no-store" />';
+print $q->header(
+		-type =>'text/html',
+		-expires => 'now',
+		-charset => 'utf-8',
+		-Cache_control => 'no-cache, no-store, must-revalidate',
+		-Pragma => 'no-cache'
+		);
 print $q->start_html(
 	-title  => 'PRESSURE',
 	-bgcolor  => "#101010"
 );
+my $param = $q->param('date');
 
 print h1({style => "width: 100%; color: white; text-align: center !important;"}, 'Just atmosphere pressure');
 #print $q->header(
@@ -57,26 +63,28 @@ my $dbh = DBI->connect("DBI:mysql:database=$database;host=$host",
                        $userid, $password,
                        {'RaiseError' => 1});
 
-my $param = $q->param('date');
-
 get_config();
 draw_pressure_graph();
 
 $dbh->disconnect();
 print $q->end_html;
 
+
 sub draw_pressure_graph
 {
     my $sth;
     my $QUERY;
+    my $yy;
+    my @datetime_arr;
+    my $position;
 
     if($param)
     {
-        $QUERY = "SELECT id, pressure FROM data WHERE DATE(inserted) = '$param'";
+        $QUERY = "SELECT id, pressure, inserted FROM data WHERE DATE(inserted) = '$param'";
     }
     else
     {
-        $QUERY = "SELECT id, pressure FROM data WHERE DATE(inserted) = DATE(CURDATE())";
+        $QUERY = "SELECT id, pressure, inserted FROM data WHERE DATE(inserted) = DATE(CURDATE())";
     }
     $sth = $dbh->prepare($QUERY);
     $sth->execute();
@@ -86,10 +94,16 @@ sub draw_pressure_graph
 
     while (my $ref = $sth->fetchrow_hashref())				# unpak data that SQL request returned
     {
+	my $datetime = $ref->{'inserted'};
+	@datetime_arr = split /[-: ]/, $datetime;
+	$position = $datetime_arr[3]*60+$datetime_arr[4];
         $press = $ref->{'pressure'};					# data of pressure
-        my $yy = ($y-(($ref->{'pressure'} - 1000) * $y_zoom)) - $y_offset; # recalculation of stupid GD-lib area coordinates
-        $image->setPixel($i, $yy, $white);				# line of white pixels
-        $image->line($i, $yy+1, $i, $y, $grey);				# vertical lines of graph
+	$yy = ($y-(($ref->{'pressure'} - 1000) * $y_zoom)) - $y_offset; # recalculation of stupid GD-lib area coordinates
+#print STDOUT "\n<BR> $position * $i\n<br>";
+#        $image->setPixel($i, $yy, $white);				# line of white pixels
+        $image->setPixel($position, $yy, $white);				# line of white pixels
+#        $image->line($i, $yy+1, $i, $y, $grey);				# vertical lines of graph
+        $image->line($position, $yy+1, $position, $y, $grey);				# vertical lines of graph
         if($i % 60 == 0)						# scale marks
         {
 	    $image->line($i, $y, $i, $y+7, $white);			# vertical lines
@@ -140,4 +154,10 @@ sub get_config
         }
     }
     $cth->finish();
+}
+
+sub to_minutes
+{
+  my ($hours, $minutes) = @_;
+  return $hours * 60 + $minutes;
 }
