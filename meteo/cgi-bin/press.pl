@@ -13,7 +13,7 @@ use Data::Dumper;
 
 my $i = 0;
 my $ii = 0;
-my $x = 1500; 
+my $x = 1440; 
 my $y = 800;
 my $scale_height = 30;
 my $y_zoom = 30;
@@ -95,6 +95,7 @@ sub draw_pressure_graph
     my @datetime_arr;
     my $position;
     my $press;
+    my $scale_i = 59;
 
     if($param)
     {
@@ -110,26 +111,48 @@ sub draw_pressure_graph
     $image->filledRectangle(0,0,$x,$y, $darkGrey); 			# Graph
     $image->filledRectangle(0,$y,$x,$y+$scale_height, $black); 		# Bottom scale
 
+### scale
+    for($i=0; $i <= $x; $i++)
+    {
+        if($scale_i == 60)						# scale marks
+        {
+	    $image->line($i, $y, $i, $y+8, $white);			# vertical lines
+	    $image->string(gdMediumBoldFont, $i-3, $y+10, $ii++, $white); # digits of hours
+	    $scale_i = 0;
+	}
+
+        if($scale_i % 5 == 0)						# scale marks small
+        {
+	    $image->line($i, $y, $i, $y+3, $white);			# vertical lines
+	}
+
+        if($scale_i % 30 == 0)						# scale marks small2
+        {
+	    $image->line($i, $y, $i, $y+5, $white);			# vertical lines
+	}
+	$scale_i++;
+    }
+###
+
+    $i = 0;
     while (my $ref = $sth->fetchrow_hashref())				# unpak data that SQL request returned
     {
 	my $datetime = $ref->{'inserted'};
 	@datetime_arr = split /[-: ]/, $datetime;
 	$position = $datetime_arr[3]*60+$datetime_arr[4];
-        $press = $ref->{'pressure'};					# data of pressure
+        $press = $ref->{'pressure'}+$config{'PRESScorr'};		# data of pressure
 	$yy = ($y-(($ref->{'pressure'} - 1000) * $y_zoom)) - $y_offset; # recalculation of stupid GD-lib area coordinates
-#print STDOUT "\n<BR> $position * $i\n<br>";
-#        $image->setPixel($i, $yy, $white);				# line of white pixels
         $image->setPixel($position, $yy, $white);				# line of white pixels
+        $image->line($position, $yy+1, $position, $y, $grey);			# vertical lines of graph
+#        $image->setPixel($i, $yy, $white);				# line of white pixels
 #        $image->line($i, $yy+1, $i, $y, $grey);				# vertical lines of graph
-        $image->line($position, $yy+1, $position, $y, $grey);				# vertical lines of graph
-        if($i % 60 == 0)						# scale marks
-        {
-	    $image->line($i, $y, $i, $y+7, $white);			# vertical lines
-	    $image->string(gdMediumBoldFont, $i-3, $y+10, $ii++, $white); # digits of hours
-	}
-	$data_arr[$i]=[$position, $ref->{'tempUL'}, $ref->{'tempDOM'}, $press];
+
+### fill data array
+	$data_arr[$i]=[$position, $ref->{'tempUL'}+$config{'ULcorr'}, $ref->{'tempDOM'}+$config{'DOMcorr'}, $press];
         $i++;
+###
     }
+
     $image->filledRectangle(0,0,$x,35, $white);				# head of graph
     # FONTS: gdGiantFont, gdLargeFont, gdMediumBoldFont, gdSmallFont and gdTinyFont
     $image->string(gdGiantFont, ($x/2)-70, 10, "PRESSURE", $blue);	# 
@@ -141,7 +164,7 @@ sub draw_pressure_graph
     {
         $image->string(gdMediumBoldFont, 20, 10, "TODAY", $blue);
     }
-    $image->string(gdMediumBoldFont, $x-70, 10, $press+$config{'PRESScorr'}, $blue);
+    $image->string(gdMediumBoldFont, $x-70, 10, $press, $blue);
     $sth->finish();
 
     # make sure we are writing to a binary stream
@@ -158,19 +181,27 @@ sub draw_pressure_graph
 		onmousemove => "display_Graph_data();",
 		id => "Graph"
     }));
-#print Dumper(@data_arr);
 
 
+#    print "\n<script>\nconst graph_data = [\n";
+#    foreach my $dta (@data_arr)
+#     {
+#    #print Dumper($dta);
+#        printf "[ %d, %.1f, %.1f, %.1f ],", @$dta[0], @$dta[1], @$dta[2], @$dta[3];
+#     }
+#    print "];";
+#
+#    print "\n</script>\n";
 
-print "\n<script>\nconst graph_data = [\n";
-foreach my $dta (@data_arr)
- {
-#print Dumper($dta);
-    printf "[ %d, %.1f, %.1f, %.1f ],", @$dta[0], @$dta[1], @$dta[2], @$dta[3];
- }
-print "];";
+    print "\n<script>\nconst graph_data = [];\n";
+    my $i=0;
+    foreach my $dta (@data_arr)
+     {
+	printf "graph_data[$i] = [ %d, %.1f, %.1f, %.1f ];\n", @$dta[0], @$dta[1], @$dta[2], @$dta[3];
+	$i++;
+     }
 
-print "\n</script>\n";
+    print "\n</script>\n";
 
 
 }
@@ -192,8 +223,3 @@ sub get_config
     $cth->finish();
 }
 
-sub to_minutes
-{
-  my ($hours, $minutes) = @_;
-  return $hours * 60 + $minutes;
-}
