@@ -28,7 +28,7 @@ const char* baseUrl = "http://192.168.7.2/meteo/save.php"; // Замените �
 
 unsigned long lastCallTime = 0;
 unsigned long reboot_lastCallTime = 0;
-const long interval = 56000; // 56 секунд * 1000 миллисекунд = 1 минута (4 секунды на подкёлючение)
+const long interval = 60000; // 60
 const long reboot_interval = 3600000; // 3600 секунд * 1000 миллисекунд = 1 час
 
 // Переменные для хранения динамических данных
@@ -87,11 +87,13 @@ void loop() {
   String formattedTime;
 
   // Проверяем, прошло ли достаточно времени с последнего вызова
-  /*if (millis() - lastCallTime >= interval)*/ {
+  if (millis() - lastCallTime >= interval)
+  {
+    lastCallTime = millis(); // Обновляем время последнего вызова
     Serial.println("\n--- Time to send data! ---");
 
     // --- Обновление динамических данных (пример) ---
-    // Здесь вы будете читать данные с ваших датчиков
+    // Здесь z читаю данные с  датчиков
     sensors.requestTemperatures(); 
     temperatureUL = sensors.getTempCByIndex(0); // улица
     temperatureDOM = sensors.getTempCByIndex(1); // дом
@@ -107,14 +109,15 @@ void loop() {
 
     callUrlWithDynamicData(temperatureUL, temperatureDOM, deviceId, dev_id); // Вызываем функцию для отправки данных
 
-    lastCallTime = millis(); // Обновляем время последнего вызова
     Serial.println("--- Data sent, waiting for next interval ---");
   }
-  if (millis() - reboot_lastCallTime >= reboot_interval) {
-    Serial.println("\n--- Time to reboot! ---");
-    reboot_lastCallTime = millis();
-    ESP.restart();
-  }
+//  
+//  if (millis() - reboot_lastCallTime >= reboot_interval) 
+//  {
+//    Serial.println("\n--- Time to reboot! ---");
+//    reboot_lastCallTime = millis();
+//    ESP.restart();
+//  }
   // Здесь может выполняться другой ваш неблокирующий код
   // Например, чтение датчиков, обработка данных, переход в спящий режим и т.д.
   // delay(100); // Небольшая задержка, чтобы избежать "голодания" других задач
@@ -179,10 +182,11 @@ void callUrlWithDynamicData(float tempUL, float tempDOM, String devId, String de
   Serial.println(" Done.");
 
   //getBMP();
-
+/*
   Serial.println("--- SLEEP ---");
   esp_sleep_enable_timer_wakeup(60000000*tmin);
   esp_deep_sleep_start();  
+*/
 }
 
 void BMPinit(void)
