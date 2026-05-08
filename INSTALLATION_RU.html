@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>INSTALLATION_RU.md</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            color: #333;
+            background-color: #f9f9f9;
+        }
+        h1, h2, h3 { color: #2c3e50; margin-top: 1.5em; }
+        h1 { border-bottom: 3px solid #3498db; padding-bottom: 10px; }
+        code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+        pre { background: #f4f4f4; padding: 15px; border-radius: 5px; overflow-x: auto; }
+        table { border-collapse: collapse; width: 100%; margin: 15px 0; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        th { background: #f0f0f0; font-weight: bold; }
+        blockquote { border-left: 4px solid #3498db; padding-left: 15px; margin: 15px 0; color: #666; }
+    </style>
+</head>
+<body>
+    <div class="content">
+        <h1>Инструкция по установке системы Thermometer</h1>
+
+Полная пошаговая инструкция для установки и запуска системы мониторинга температуры.
+
+<h2>📋 Содержание</h2>
+
+1. [Предварительные требования](#предварительные-требования)
+2. [Подготовка сервера](#подготовка-сервера)
+3. [Установка базы данных](#установка-базы-данных)
+4. [Установка веб-приложения](#установка-веб-приложения)
+5. [Конфигурация ESP32](#конфигурация-esp32)
+6. [Первый запуск](#первый-запуск)
+7. [Тестирование системы](#тестирование-системы)
+
+<h2>🔧 Предварительные требования</h2>
+
+<h3>Сервер (Linux)</h3>
+
+<pre><code class="bash"><h1>Ubuntu/Debian</h1>
+sudo apt-get update
+sudo apt-get install apache2 php php-mysql mysql-server curl git
+
+<h1>Или для nginx + PHP-FPM</h1>
+sudo apt-get install nginx php-fpm php-mysql mysql-server curl git
+</code></pre>
+
+<h3>Локальная машина</h3>
+
+- Arduino IDE (https://www.arduino.cc/en/software)
+- USB кабель для ESP32
+- Текстовый редактор (VSCode, nano, vim)
+
+<h3>Оборудование</h3>
+
+- Два микроконтроллера ESP32
+- Датчик температуры DS18B20 (×2)
+- Датчик давления BMP280
+- E-ink дисплей GxEPD 2.13"
+- Резистор pull-up 4.7kΩ для OneWire
+- WiFi маршрутизатор (2.4 ГГц)
+
+<h2>🖥️ Подготовка сервера</h2>
+
+<h3>Шаг 1: Проверить IP адрес сервера</h3>
+
+<pre><code class="bash">ip addr show
+<h1>или</h1>
+hostname -I
+</code></pre>
+
+Запомните IP адрес (например, 192.168.1.100)
+
+<h3>Шаг 2: Создать директорию для проекта</h3>
+
+<pre><code class="bash">sudo mkdir -p /var/www/html/meteo
+cd /var/www/html/meteo
+sudo chown -R $USER:$USER .
+</code></pre>
+
+<h3>Шаг 3: Скопировать файлы проекта</h3>
+
+<pre><code class="bash"><h1>Клонировать или скопировать файлы</h1>
+git clone https://github.com/fdv-almaz/termometr.git .
+<h1>или</h1>
+cp -r ~/termometr/* /var/www/html/meteo/
+</code></pre>
+
+<h3>Шаг 4: Создать директорию логов</h3>
+
+<pre><code class="bash">mkdir -p /var/www/html/meteo/logs
+chmod 755 /var/www/html/meteo/logs
+sudo chown www-data:www-data /var/www/html/meteo/logs
+</code></pre>
+
+<h3>Шаг 5: Проверить PHP</h3>
+
+<pre><code class="bash">php -v
+<h1>Должна быть версия 7.4+</h1>
+</code></pre>
+
+<h2>🗄️ Установка базы данных</h2>
+
+<h3>Шаг 1: Войти в MySQL</h3>
+
+<pre><code class="bash">mysql -u root -p
+<h1>Введите пароль root</h1>
+</code></pre>
+
+<h3>Шаг 2: Создать базу данных</h3>
+
+<pre><code class="sql">CREATE DATABASE meteo CHARACTER SET utf8mb4 COLLATE utf8mb4<em>general</em>ci;
+</code></pre>
+
+<h3>Шаг 3: Создать пользователя</h3>
+
+<pre><code class="sql">CREATE USER 'meteo<em>user'@'localhost' IDENTIFIED BY 'ваш</em>надежный_пароль';
+GRANT ALL PRIVILEGES ON meteo.* TO 'meteo_user'@'localhost';
+FLUSH PRIVILEGES;
+EXIT;
+</code></pre>
+
+<h3>Шаг 4: Импортировать схему</h3>
+
+<pre><code class="bash">cd /var/www/html/meteo
+mysql -u meteo<em>user -p meteo < mysql/meteoDB</em>create.sql
+</code></pre>
+
+Введите пароль пользователя <code>meteo_user</code>.
+
+<h3>Шаг 5: Проверить таблицы</h3>
+
+<pre><code class="bash">mysql -u meteo_user -p meteo -e "SHOW TABLES;"
+</code></pre>
+
+Должны быть таблицы <code>config</code> и <code>data</code>.
+
+<h2>🌐 Установка веб-приложения</h2>
+
+<h3>Шаг 1: Создать конфиг-файл</h3>
+
+<pre><code class="bash">cp /var/www/html/meteo/meteo/example.config.php /var/www/html/meteo/meteo/db.php
+</code></pre>
+
+<h3>Шаг 2: Отредактировать конфиг</h3>
+
+<pre><code class="bash">nano /var/www/html/meteo/meteo/db.php
+</code></pre>
+
+Измените значения на ваши:
+
+<pre><code class="php">$config = array(
+  'db_host' => 'localhost',
+  'db<em>user' => 'meteo</em>user',
+  'db<em>pass' => 'ваш</em>надежный_пароль',  // ← Измените это
+  'db_name' => 'meteo',
+);
+
+$api_config = array(
+  'api<em>key' => 'ваш</em>секретный<em>ключ</em>api<em>32</em>символа',  // ← И это
+  'enable_auth' => true,
+  // ...
+);
+</code></pre>
+
+Сохраните файл (Ctrl+X → Y → Enter)
+
+<h3>Шаг 3: Установить права доступа</h3>
+
+<pre><code class="bash">sudo chown -R www-data:www-data /var/www/html/meteo
+chmod -R 755 /var/www/html/meteo
+chmod 600 /var/www/html/meteo/meteo/db.php
+</code></pre>
+
+<h3>Шаг 4: Проверить Apache конфиг</h3>
+
+<pre><code class="bash"><h1>Для Apache2</h1>
+sudo a2enmod rewrite
+sudo systemctl reload apache2
+</code></pre>
+
+<h3>Шаг 5: Проверить работу веб-приложения</h3>
+
+<pre><code class="bash"><h1>Получить последние данные (будет ошибка - данных нет)</h1>
+curl "http://localhost/meteo/getlast.php"
+
+<h1>Отправить тестовые данные</h1>
+curl "http://localhost/meteo/save.php?api<em>key=ваш</em>ключ&dev_id=1&temperatureUL=20.5&temperatureDOM=21.3&press=1013.25"
+</code></pre>
+
+<h2>💾 Конфигурация ESP32</h2>
+
+<h3>Шаг 1: Установить Arduino IDE</h3>
+
+1. Скачайте с https://www.arduino.cc/en/software
+2. Установите по инструкции для вашей ОС
+
+<h3>Шаг 2: Добавить поддержку ESP32</h3>
+
+1. Откройте Arduino IDE
+2. File → Preferences
+3. В поле "Additional Boards Manager URLs" добавьте:
+   <pre><code>   https://dl.espressif.com/dl/package<em>esp32</em>index.json
+   </code></pre>
+4. OK
+5. Tools → Board → Boards Manager
+6. Найдите "esp32" и установите последнюю версию
+
+<h3>Шаг 3: Установить библиотеки</h3>
+
+1. Tools → Manage Libraries
+2. Установите эти библиотеки:
+   - ESP32Time
+   - OneWire
+   - DallasTemperature
+   - Adafruit_BMP280
+   - GxEPD (и зависимости)
+   - Adafruit_BMP280
+
+<h3>Шаг 4: Загрузить EEPROM конфиг-скетч</h3>
+
+1. Создайте новый скетч
+2. Скопируйте код из <code>EEPROM<em>CONFIG</em>GUIDE_RU.md</code>
+3. Измените значения на ваши:
+   - SSID (имя WiFi)
+   - Пароль WiFi
+   - URL сервера (http://192.168.1.100/meteo/save.php)
+   - API ключ
+4. Выберите плату ESP32
+5. Выберите COM порт
+6. Sketch → Upload
+7. Tools → Serial Monitor (скорость 115200)
+8. Проверьте сообщение "configured successfully"
+
+<h3>Шаг 5: Загрузить основные скетчи</h3>
+
+<strong>Для платы датчиков:</strong>
+1. Откройте <code>board<em>with</em>sensors<em>data</em>sent<em>to</em>the<em>server/board</em>with<em>sensors</em>data<em>sent</em>to<em>the</em>server.ino</code>
+2. Выберите правильный COM порт
+3. Sketch → Upload
+4. Serial Monitor должен показать логи подключения
+
+<strong>Для платы дисплея:</strong>
+1. Откройте <code>screen<em>to</em>get<em>temperatures</em>from<em>server</em>eInk/screen<em>to</em>get<em>temperatures</em>from<em>server</em>eInk.ino</code>
+2. Выберите правильный COM порт (второй ESP32)
+3. Sketch → Upload
+4. Serial Monitor должен показать логи подключения
+
+<h2>🚀 Первый запуск</h2>
+
+<h3>На плате датчиков</h3>
+
+1. Подключите датчики (DS18B20, BMP280)
+2. Подключите питание
+3. Наблюдайте в Serial Monitor:
+   - "Connecting to WiFi: MyWiFi"
+   - Должно появиться "WiFi connected!"
+   - Затем "Data sent successfully"
+
+<h3>На плате дисплея</h3>
+
+1. Подключите питание
+2. Наблюдайте в Serial Monitor:
+   - "Connecting to WiFi: MyWiFi"
+   - "WiFi connected!"
+   - На дисплее должны появиться значения температур
+
+<h3>На веб-сервере</h3>
+
+1. Проверьте, что данные попали в БД:
+
+<pre><code class="bash">mysql -u meteo_user -p meteo -e "SELECT * FROM data ORDER BY id DESC LIMIT 5;"
+</code></pre>
+
+Должны быть строки с вашими данными.
+
+<h2>✅ Тестирование системы</h2>
+
+<h3>Тест 1: Проверить сохранение данных</h3>
+
+<pre><code class="bash"><h1>Отправить данные с датчика</h1>
+curl "http://192.168.1.100/meteo/save.php?api<em>key=ваш</em>ключ&dev_id=1&temperatureUL=15.5&temperatureDOM=22.3&press=1012.0"
+
+<h1>Получить последние данные</h1>
+curl "http://192.168.1.100/meteo/getlast.php"
+</code></pre>
+
+<h3>Тест 2: Проверить корректность коррекций</h3>
+
+<pre><code class="bash"><h1>Посмотреть коррекции в БД</h1>
+mysql -u meteo_user -p meteo -e "SELECT * FROM config;"
+
+<h1>Должно быть:</h1>
+<h1>ULcorr, -1.5</h1>
+<h1>DOMcorr, +0</h1>
+<h1>PRESScorr, -3</h1>
+</code></pre>
+
+<h3>Тест 3: Проверить дисплей</h3>
+
+1. Принудительно разбудите плату дисплея
+2. Она должна подключиться к WiFi
+3. Получить данные с сервера
+4. Отобразить на дисплее
+5. Перейти в режим сна
+
+<h3>Тест 4: Проверить логирование ошибок</h3>
+
+<pre><code class="bash"><h1>Посмотреть логи ошибок</h1>
+tail -f /var/www/html/meteo/logs/error.log
+
+<h1>Должны быть логи об успешном сохранении</h1>
+</code></pre>
+
+<h2>🔐 Безопасность</h2>
+
+<h3>Обязательные действия</h3>
+
+<pre><code class="bash"><h1>1. Измените пароль MySQL</h1>
+mysql -u root -p
+
+<h1>2. Добавьте firewall правила</h1>
+sudo ufw allow 22/tcp    # SSH
+sudo ufw allow 80/tcp    # HTTP
+sudo ufw allow 443/tcp   # HTTPS
+sudo ufw enable
+
+<h1>3. Установите HTTPS (Let's Encrypt)</h1>
+sudo apt-get install certbot python3-certbot-apache
+sudo certbot certonly --apache -d ваш.домен.ру
+
+<h1>4. Настройте резервные копии</h1>
+sudo crontab -e
+<h1>Добавьте строку:</h1>
+<h1>0 3 <em> </em> * mysqldump -u meteo<em>user -p'пароль' meteo | gzip > /backups/meteo</em>$(date +\%Y\%m\%d).sql.gz</h1>
+</code></pre>
+
+<h2>🐛 Решение проблем при установке</h2>
+
+<h3>Apache не видит PHP</h3>
+
+<pre><code class="bash">sudo a2enmod php7.4
+sudo systemctl reload apache2
+</code></pre>
+
+<h3>Ошибка "Permission denied" для логов</h3>
+
+<pre><code class="bash">sudo chown -R www-data:www-data /var/www/html/meteo/logs
+sudo chmod 755 /var/www/html/meteo/logs
+</code></pre>
+
+<h3>Ошибка подключения к БД</h3>
+
+<pre><code class="bash"><h1>Проверить, запущена ли MySQL</h1>
+sudo systemctl status mysql
+
+<h1>Проверить логин</h1>
+mysql -u meteo_user -p meteo -e "SELECT 1;"
+</code></pre>
+
+<h3>ESP32 не загружается</h3>
+
+1. Проверьте USB кабель
+2. Выберите правильную плату (Tools → Board → ESP32 Dev Module)
+3. Выберите правильный COM порт (Tools → Port)
+4. Проверьте драйверы CH340 для USB
+
+<h2>📞 Дополнительная помощь</h2>
+
+- Посмотрите <code>TROUBLESHOOTING_RU.md</code> для решения проблем в работе
+- Посмотрите <code>EEPROM<em>CONFIG</em>GUIDE_RU.md</code> для деталей конфигурации
+- Проверьте логи: <code>/var/www/html/meteo/logs/error.log</code>
+- Используйте Serial Monitor в Arduino IDE для отладки ESP32
+
+    </div>
+</body>
+</html>

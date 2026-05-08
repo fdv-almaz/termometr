@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>README_RU.md</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            color: #333;
+            background-color: #f9f9f9;
+        }
+        h1, h2, h3 { color: #2c3e50; margin-top: 1.5em; }
+        h1 { border-bottom: 3px solid #3498db; padding-bottom: 10px; }
+        code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+        pre { background: #f4f4f4; padding: 15px; border-radius: 5px; overflow-x: auto; }
+        table { border-collapse: collapse; width: 100%; margin: 15px 0; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        th { background: #f0f0f0; font-weight: bold; }
+        blockquote { border-left: 4px solid #3498db; padding-left: 15px; margin: 15px 0; color: #666; }
+    </style>
+</head>
+<body>
+    <div class="content">
+        <h1>Термометр - Система удаленного мониторинга температуры через WiFi</h1>
+
+Распределённая система мониторинга температуры в доме с использованием микроконтроллеров ESP32, веб-сервера и электронных дисплеев e-ink.
+
+<h2>🎯 Особенности</h2>
+
+- <strong>Двухканальное измерение температуры</strong> (улица и дом)
+- <strong>Мониторинг атмосферного давления</strong> через датчик BMP280
+- <strong>Маломощный e-ink дисплей</strong> для удаленного просмотра
+- <strong>Поддержка нескольких датчиков</strong> через конфигурацию EEPROM
+- <strong>Настраиваемые коррекции температуры</strong> в базе данных
+- <strong>Защищённый API</strong> с аутентификацией
+- <strong>Режим глубокого сна</strong> для питания от батареи
+
+<h2>📋 Требования</h2>
+
+<h3>Оборудование</h3>
+
+- <strong>Плата датчиков</strong>: ESP32 + DS18B20 (×2) + BMP280
+- <strong>Плата дисплея</strong>: ESP32 + e-ink дисплей GxEPD 2.13" (TTGO T5 V2.4.1+)
+- <strong>Сервер</strong>: Linux с Apache/Nginx и PHP 7.4+
+- <strong>База данных</strong>: MySQL 5.7+ или MariaDB 10.3+
+- <strong>WiFi сеть</strong>: 2.4 ГГц (ESP32 не поддерживает 5 ГГц)
+
+<h3>ПО</h3>
+
+- Arduino IDE 1.8.19+ с поддержкой ESP32 (v2.0.0+)
+- PHP 7.4 или новее
+- MySQL/MariaDB клиент
+
+<h3>Необходимые библиотеки Arduino</h3>
+
+Для платы датчиков:
+- <code>ESP32Time</code>
+- <code>OneWire</code>
+- <code>DallasTemperature</code>
+- <code>Adafruit_BMP280</code>
+
+Для платы дисплея:
+- <code>GxEPD</code>
+- <code>GxDEPG0213BN</code>
+- Все зависимости GxEPD
+
+<h2>🚀 Быстрый старт</h2>
+
+<h3>1. Подготовка базы данных</h3>
+
+<pre><code class="bash"><h1>Создать базу данных и пользователя</h1>
+mysql -u root -p < mysql/meteoDB_create.sql
+
+<h1>Или вручную:</h1>
+mysql -u root -p
+CREATE DATABASE meteo CHARACTER SET utf8mb4;
+CREATE USER 'meteo<em>user'@'localhost' IDENTIFIED BY 'надежный</em>пароль';
+GRANT ALL PRIVILEGES ON meteo.* TO 'meteo_user'@'localhost';
+</code></pre>
+
+<h3>2. Установка веб-части</h3>
+
+<pre><code class="bash"><h1>Скопировать файлы на веб-сервер</h1>
+cp -r meteo/ /var/www/html/
+chown -R www-data:www-data /var/www/html/meteo/
+mkdir -p /var/www/html/meteo/logs
+chmod 755 /var/www/html/meteo/logs
+
+<h1>Создать файл конфигурации</h1>
+cp meteo/example.config.php meteo/db.php
+<h1>Отредактировать meteo/db.php с вашими параметрами</h1>
+</code></pre>
+
+Установить переменные окружения в конфигурацию веб-сервера:
+
+<pre><code class="apache">SetEnv DB_HOST localhost
+SetEnv DB<em>USER meteo</em>user
+SetEnv DB<em>PASS надежный</em>пароль
+SetEnv DB_NAME meteo
+SetEnv API<em>KEY ваш</em>секретный<em>ключ</em>api
+SetEnv ENABLE_AUTH true
+</code></pre>
+
+<h3>3. Настройка Arduino</h3>
+
+1. Установить Arduino IDE и поддержку ESP32
+2. Установить требуемые библиотеки через Library Manager
+3. <strong>ВАЖНО</strong>: Настроить EEPROM на каждом ESP32 перед загрузкой основного скетча
+
+См. <code>EEPROM<em>CONFIG</em>GUIDE_RU.md</code> для подробных инструкций.
+
+4. Загрузить скетч платы датчиков на первый ESP32
+5. Загрузить скетч платы дисплея на второй ESP32
+
+<h2>📡 API документация</h2>
+
+<h3>GET /meteo/save.php</h3>
+
+Сохраняет данные температуры от платы датчиков.
+
+<strong>Параметры</strong>:
+- <code>api_key</code> (обязательный): Ключ аутентификации
+- <code>dev_id</code> (обязательный): ID устройства (1-255)
+- <code>time</code> (опциональный): Время в формате HH:MM:SS
+- <code>temperatureUL</code> (обязательный): Температура снаружи (-50 до +100°C)
+- <code>temperatureDOM</code> (обязательный): Температура в доме (-50 до +100°C)
+- <code>press</code> (опциональный): Давление (300-1200 гПа)
+
+<strong>Пример</strong>:
+<pre><code>GET /meteo/save.php?api<em>key=abc123&dev</em>id=1&time=14:30:45&temperatureUL=5.2&temperatureDOM=21.3&press=1013.25
+</code></pre>
+
+<strong>Ответ</strong>:
+<pre><code class="json">{"status": "success", "message": "Data saved"}
+</code></pre>
+
+<h3>GET /meteo/getlast.php</h3>
+
+Получает последние данные температуры для дисплея.
+
+<strong>Формат ответа</strong> (CSV):
+<pre><code>device_id,timestamp,tempInside,tempOutside,corrInside,corrOutside,pressure
+</code></pre>
+
+<strong>Пример</strong>:
+<pre><code>1,2024-05-08 14:30:45,21.30,5.20,+0.0,-1.5,1013.2
+</code></pre>
+
+<h2>🔧 Конфигурация</h2>
+
+<h3>Коррекции температуры</h3>
+
+Коррекции хранятся в таблице <code>config</code> и применяются на сервере:
+
+<pre><code class="sql">INSERT INTO config (param<em>name, param</em>data, comment) VALUES
+('ULcorr', '-1.5', 'Коррекция уличной температуры'),
+('DOMcorr', '+0.5', 'Коррекция комнатной температуры'),
+('PRESScorr', '-3.0', 'Коррекция давления');
+</code></pre>
+
+<h3>Интервалы сна</h3>
+
+- <strong>Плата датчиков</strong>: Установите <code>sleep_minutes</code> в коде (по умолчанию: 1 минута между измерениями)
+- <strong>Плата дисплея</strong>: Установите <code>update<em>interval</em>minutes</code> в коде (по умолчанию: 10 минут)
+
+<h2>🔐 Безопасность</h2>
+
+⚠️ <strong>Важные заметки по безопасности</strong>:
+
+- Немедленно измените <code>API_KEY</code> в файле конфигурации
+- Используйте HTTPS в production
+- Храните данные EEPROM в безопасности
+- Не коммитьте конфиг файлы в систему контроля версий
+- Установите правильные права доступа на веб-директории
+- Включите резервное копирование базы данных
+
+<h2>📊 Схема базы данных</h2>
+
+<h3>Таблица data</h3>
+- <code>id</code>: Первичный ключ с автоинкрементом
+- <code>dev_id</code>: Идентификатор устройства
+- <code>dev_time</code>: Время с устройства
+- <code>tempUL</code>: Температура снаружи
+- <code>tempDOM</code>: Температура в доме
+- <code>pressure</code>: Атмосферное давление
+- <code>inserted</code>: Временная метка сервера
+
+<h3>Таблица config</h3>
+- <code>id</code>: Первичный ключ
+- <code>param_name</code>: Имя параметра конфигурации
+- <code>param_data</code>: Значение параметра
+- <code>comment</code>: Описание
+
+<h2>🐛 Решение проблем</h2>
+
+<strong>Дисплей показывает "No WiFi"</strong>
+- Проверьте SSID и пароль в EEPROM
+- Убедитесь, что учетные данные WiFi верны
+- Проверьте мощность сигнала WiFi (не менее -80 дБм)
+
+<strong>Данные не сохраняются</strong>
+- Проверьте ключ API в запросе
+- Посмотрите логи ошибок PHP: <code>/var/www/html/meteo/logs/error.log</code>
+- Проверьте подключение к БД: <code>mysql -u meteo_user -p meteo -e "SELECT 1"</code>
+
+<strong>Значения температуры неправильные</strong>
+- Проверьте разводку датчиков
+- Убедитесь, что есть pull-up резистор 4.7kΩ для DS18B20
+- Проверьте адрес I2C для BMP280 (0x76 или 0x77)
+
+<strong>Дисплей показывает старые данные</strong>
+- Плата датчиков может иметь проблемы с подключением
+- Проверьте связь с сетью
+- Убедитесь, что ключ API совпадает в обоих скетчах
+
+<h2>📝 Лицензия</h2>
+
+Исходный дизайн: Dzmitry Frantskevich
+
+<strong>Последние улучшения</strong> (v2.0.0 - 2024):
+- Исправления безопасности (предотвращение SQL injection, удаление eval())
+- Управление конфигурацией через EEPROM
+- Аутентификация API
+- Улучшенная обработка ошибок
+- Валидация данных
+- Рефакторинг кода
+
+<h2>🤝 Содействие</h2>
+
+Контрибьюторы приветствуются. Убедитесь, что:
+- Код следует существующему стилю
+- Уязвимости безопасности сообщаются приватно
+- Изменения хорошо протестированы
+- Документация обновлена
+
+<h2>📞 Поддержка</h2>
+
+По вопросам, проблемам или предложениям создайте issue на GitHub или свяжитесь с разработчиком.
+
+    </div>
+</body>
+</html>

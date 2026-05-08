@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TROUBLESHOOTING_RU.md</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            color: #333;
+            background-color: #f9f9f9;
+        }
+        h1, h2, h3 { color: #2c3e50; margin-top: 1.5em; }
+        h1 { border-bottom: 3px solid #3498db; padding-bottom: 10px; }
+        code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+        pre { background: #f4f4f4; padding: 15px; border-radius: 5px; overflow-x: auto; }
+        table { border-collapse: collapse; width: 100%; margin: 15px 0; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        th { background: #f0f0f0; font-weight: bold; }
+        blockquote { border-left: 4px solid #3498db; padding-left: 15px; margin: 15px 0; color: #666; }
+    </style>
+</head>
+<body>
+    <div class="content">
+        <h1>Руководство по решению проблем</h1>
+
+Решение распространённых проблем при эксплуатации системы Thermometer.
+
+<h2>📋 Быстрая диагностика</h2>
+
+Используйте эту таблицу для быстрого нахождения проблемы:
+
+| Симптом | Вероятная причина | Решение |
+|---------|-------------------|--------|
+| <strong>Дисплей показывает "No WiFi"</strong> | WiFi не подключается | Проверьте [WiFi проблемы](#wifi-проблемы) |
+| <strong>Данные не сохраняются</strong> | Ошибка API или БД | Проверьте [Проблемы API](#проблемы-api) |
+| <strong>Дисплей не обновляется</strong> | Сервер недоступен | Проверьте [Проблемы сервера](#проблемы-сервера) |
+| <strong>Неправильная температура</strong> | Проблема датчика | Проверьте [Проблемы датчиков](#проблемы-датчиков) |
+| <strong>Устройство перезагружается</strong> | Недостаточно памяти | Проверьте [Проблемы памяти](#проблемы-памяти) |
+
+---
+
+<h2>🌐 WiFi проблемы</h2>
+
+<h3>Проблема: Дисплей показывает "No WiFi!"</h3>
+
+<strong>Признаки:</strong>
+- На дисплее вместо температур видно "No WiFi!"
+- Serial Monitor показывает "Connecting to WiFi..."
+
+<strong>Решение:</strong>
+
+1. <strong>Проверьте EEPROM конфигурацию:</strong>
+<pre><code class="bash"><h1>Загрузите конфиг-скетч и посмотрите Serial Monitor</h1>
+<h1>Должно быть: "SSID: ваша_сеть"</h1>
+<h1>Если пусто - переконфигурируйте EEPROM</h1>
+</code></pre>
+
+2. <strong>Проверьте имя и пароль WiFi:</strong>
+<pre><code class="bash"><h1>На Linux - посмотрите доступные сети</h1>
+nmcli dev wifi
+
+<h1>Убедитесь, что:</h1>
+<h1>- Имя сети (SSID) правильное</h1>
+<h1>- Пароль введён без опечаток</h1>
+<h1>- Сеть работает на 2.4 ГГц (не 5 ГГц!)</h1>
+</code></pre>
+
+3. <strong>Проверьте сигнал WiFi:</strong>
+<pre><code class="bash"><h1>Serial Monitor должен показать RSSI (сигнал)</h1>
+<h1>Оптимально: от -70 до -50 дБм</h1>
+<h1>Если хуже -80 дБм - приблизьте маршрутизатор</h1>
+</code></pre>
+
+4. <strong>Проверьте MAC фильтр маршрутизатора:</strong>
+<pre><code class="bash"><h1>На маршрутизаторе:</h1>
+<h1>1. Найдите MAC адрес ESP32 (будет в Serial Monitor)</h1>
+<h1>2. Добавьте его в список разрешённых устройств</h1>
+</code></pre>
+
+5. <strong>Сбросьте настройки WiFi на ESP32:</strong>
+<pre><code class="cpp">// Добавьте в setup() перед WiFi.begin():
+WiFi.disconnect(true);  // Стереть сохранённые сети
+delay(1000);
+</code></pre>
+
+---
+
+<h2>💾 Проблемы API</h2>
+
+<h3>Проблема: "401 Forbidden" при отправке данных</h3>
+
+<strong>Решение:</strong>
+
+1. <strong>Проверьте API ключ в EEPROM:</strong>
+<pre><code class="bash"><h1>Serial Monitor датчика должен показать при загрузке:</h1>
+<h1>"API Key: ваш_ключ"</h1>
+<h1>Если пусто - переконфигурируйте EEPROM</h1>
+</code></pre>
+
+2. <strong>Проверьте API ключ на сервере:</strong>
+<pre><code class="bash"><h1>Посмотрите переменную окружения</h1>
+printenv | grep API_KEY
+
+<h1>Или в Apache конфиге (если задали там)</h1>
+grep -r "API_KEY" /etc/apache2/
+</code></pre>
+
+3. <strong>Убедитесь, что ключи совпадают:</strong>
+<pre><code class="bash"><h1>EEPROM на датчике: "abc123..."</h1>
+<h1>Переменная сервера API_KEY должна быть: "abc123..."</h1>
+</code></pre>
+
+4. <strong>Проверьте, включена ли аутентификация:</strong>
+<pre><code class="bash"><h1>Проверьте ENABLE_AUTH в конфиге</h1>
+grep ENABLE_AUTH /var/www/html/meteo/meteo/db.php
+
+<h1>Если false, аутентификация отключена</h1>
+</code></pre>
+
+<h3>Проблема: "Invalid input" при отправке данных</h3>
+
+<strong>Решение:</strong>
+
+1. <strong>Проверьте формат данных:</strong>
+<pre><code class="bash"><h1>Правильный формат:</h1>
+<h1>/meteo/save.php?api<em>key=KEY&dev</em>id=1&temperatureUL=20.5&temperatureDOM=21.3&press=1013.25</h1>
+
+<h1>Ошибки:</h1>
+<h1>- temperatureUL=abc (не число)</h1>
+<h1>- temperatureUL=999 (выше максимума 100°C)</h1>
+<h1>- dev_id=0 (должно быть 1-255)</h1>
+</code></pre>
+
+2. <strong>Проверьте диапазоны значений:</strong>
+<pre><code>Температура: -50 до +100°C
+Давление: 300 до 1200 гПа
+Device ID: 1 до 255
+</code></pre>
+
+3. <strong>Посмотрите логи ошибок:</strong>
+<pre><code class="bash">tail -50 /var/www/html/meteo/logs/error.log
+</code></pre>
+
+<h3>Проблема: "Database connection failed"</h3>
+
+<strong>Решение:</strong>
+
+1. <strong>Проверьте подключение к БД:</strong>
+<pre><code class="bash"><h1>Подключитесь вручную</h1>
+mysql -u meteo_user -p meteo -h localhost
+<h1>Если не работает - БД недоступна</h1>
+</code></pre>
+
+2. <strong>Проверьте параметры БД в конфиге:</strong>
+<pre><code class="bash">grep "db_" /var/www/html/meteo/meteo/db.php
+
+<h1>Убедитесь, что:</h1>
+<h1>db_host = localhost (или IP сервера)</h1>
+<h1>db<em>user = meteo</em>user</h1>
+<h1>db_pass = правильный пароль</h1>
+<h1>db_name = meteo</h1>
+</code></pre>
+
+3. <strong>Проверьте, запущена ли MySQL:</strong>
+<pre><code class="bash">sudo systemctl status mysql
+<h1>Если не работает:</h1>
+sudo systemctl start mysql
+</code></pre>
+
+4. <strong>Проверьте права доступа пользователя БД:</strong>
+<pre><code class="bash">mysql -u root -p
+<h1>Выполните:</h1>
+GRANT ALL PRIVILEGES ON meteo.* TO 'meteo_user'@'localhost';
+FLUSH PRIVILEGES;
+</code></pre>
+
+---
+
+<h2>🖥️ Проблемы сервера</h2>
+
+<h3>Проблема: Сервер не отвечает (timeout)</h3>
+
+<strong>Решение:</strong>
+
+1. <strong>Проверьте доступность сервера с ESP32:</strong>
+<pre><code class="bash"><h1>На ESP32 в Serial Monitor должно быть:</h1>
+<h1>"HTTP Response: 200"</h1>
+<h1>Если нет - сервер недоступен с сети ESP32</h1>
+</code></pre>
+
+2. <strong>Проверьте IP адрес сервера:</strong>
+<pre><code class="bash"><h1>На сервере:</h1>
+hostname -I
+
+<h1>Этот IP должен быть в EEPROM ESP32</h1>
+<h1>Проверьте: http://192.168.X.X/meteo/save.php</h1>
+</code></pre>
+
+3. <strong>Проверьте firewall на сервере:</strong>
+<pre><code class="bash"><h1>Проверьте, открыт ли порт 80</h1>
+sudo ufw status
+<h1>Если закрыт:</h1>
+sudo ufw allow 80/tcp
+</code></pre>
+
+4. <strong>Проверьте Apache/Nginx:</strong>
+<pre><code class="bash"><h1>Для Apache:</h1>
+sudo systemctl status apache2
+
+<h1>Для Nginx:</h1>
+sudo systemctl status nginx
+
+<h1>Если не работает:</h1>
+sudo systemctl restart apache2  # или nginx
+</code></pre>
+
+<h3>Проблема: 404 Not Found</h3>
+
+<strong>Решение:</strong>
+
+1. <strong>Проверьте путь к файлам:</strong>
+<pre><code class="bash">ls -la /var/www/html/meteo/meteo/
+<h1>Должны быть: save.php, getlast.php, db.php</h1>
+</code></pre>
+
+2. <strong>Проверьте права доступа:</strong>
+<pre><code class="bash"><h1>Файлы должны быть читаемы www-data</h1>
+sudo chown -R www-data:www-data /var/www/html/meteo
+</code></pre>
+
+3. <strong>Проверьте URL в EEPROM:</strong>
+<pre><code class="bash"><h1>Serial Monitor должен показать:</h1>
+<h1>"Calling URL: http://192.168.X.X/meteo/save.php"</h1>
+<h1>Без опечаток и с правильной папкой meteo/</h1>
+</code></pre>
+
+<h3>Проблема: 500 Internal Server Error</h3>
+
+<strong>Решение:</strong>
+
+1. <strong>Посмотрите логи ошибок Apache:</strong>
+<pre><code class="bash">sudo tail -100 /var/log/apache2/error.log
+</code></pre>
+
+2. <strong>Посмотрите логи приложения:</strong>
+<pre><code class="bash">cat /var/www/html/meteo/logs/error.log
+</code></pre>
+
+3. <strong>Проверьте синтаксис PHP:</strong>
+<pre><code class="bash">php -l /var/www/html/meteo/meteo/save.php
+<h1>Должно быть: "No syntax errors"</h1>
+</code></pre>
+
+4. <strong>Проверьте расширение php-mysql:</strong>
+<pre><code class="bash">php -m | grep mysql
+<h1>Должно быть: "mysqli"</h1>
+<h1>Если нет:</h1>
+sudo apt-get install php-mysql
+</code></pre>
+
+---
+
+<h2>📊 Проблемы датчиков</h2>
+
+<h3>Проблема: Температура всегда 85°C или -127°C</h3>
+
+<strong>Причина:</strong> DS18B20 не подключен правильно или неисправен
+
+<strong>Решение:</strong>
+
+1. <strong>Проверьте разводку DS18B20:</strong>
+<pre><code>GND (чёрный) → GND ESP32
+VCC (красный) → 3.3V ESP32
+DQ (жёлтый) → GPIO 15 + резистор 4.7kΩ к 3.3V
+</code></pre>
+
+2. <strong>Проверьте резистор pull-up:</strong>
+<pre><code class="bash"><h1>Резистор 4.7kΩ ОБЯЗАТЕЛЕН между DQ и 3.3V</h1>
+<h1>Без него датчик не работает</h1>
+</code></pre>
+
+3. <strong>Проверьте адреса датчиков в коде:</strong>
+<pre><code class="cpp">// Serial Monitor должен показать адреса датчиков
+// getTempCByIndex(0) и getTempCByIndex(1) - индексы датчиков
+</code></pre>
+
+4. <strong>Протестируйте датчик отдельно:</strong>
+<pre><code class="cpp">// Загрузите пример из библиотеки DallasTemperature
+// File → Examples → DallasTemperature
+// Убедитесь, что датчик определяется
+</code></pre>
+
+<h3>Проблема: Давление показывает 0</h3>
+
+<strong>Причина:</strong> BMP280 не подключен или неправильный адрес I2C
+
+<strong>Решение:</strong>
+
+1. <strong>Проверьте разводку BMP280:</strong>
+<pre><code>GND → GND ESP32
+VCC → 3.3V ESP32
+SCL → GPIO 21 (или I2C SCL)
+SDA → GPIO 22 (или I2C SDA)
+</code></pre>
+
+2. <strong>Проверьте адрес I2C:</strong>
+<pre><code class="cpp">// В коде проверьте адрес:
+bmp.begin(0x76);  // или 0x77
+// Serial Monitor должен показать успешную инициализацию
+</code></pre>
+
+3. <strong>Сканируйте I2C адреса:</strong>
+<pre><code class="cpp">// Загрузите i2c_scanner из примеров
+// Найдите адреса датчиков
+</code></pre>
+
+---
+
+<h2>💡 Проблемы памяти</h2>
+
+<h3>Проблема: Устройство перезагружается или зависает</h3>
+
+<strong>Решение:</strong>
+
+1. <strong>Посмотрите свободную память:</strong>
+<pre><code class="cpp">// Serial Monitor должен показать:
+// "Free Heap: 200000"
+// Если меньше 50000 - проблема памяти
+</code></pre>
+
+2. <strong>Найдите утечку памяти:</strong>
+<pre><code class="cpp">// Добавьте в loop():
+Serial.printf("Free Heap: %d\n", ESP.getFreeHeap());
+delay(1000);
+
+// Если память уменьшается - утечка
+</code></pre>
+
+3. <strong>Отключите ненужные библиотеки:</strong>
+<pre><code class="cpp">// Удалите включение библиотек, которые не используются
+// #include <XXX>  → закомментируйте
+</code></pre>
+
+4. <strong>Сбросьте EEPROM:</strong>
+<pre><code class="cpp">EEPROM.begin(256);
+EEPROM.write(0, 0);  // Сотрите всё
+EEPROM.commit();
+</code></pre>
+
+---
+
+<h2>🔧 Дисплей e-ink проблемы</h2>
+
+<h3>Проблема: Дисплей не обновляется или показывает мусор</h3>
+
+<strong>Решение:</strong>
+
+1. <strong>Проверьте разводку дисплея:</strong>
+<pre><code>MOSI → GPIO 23
+MISO → GPIO 19
+CLK → GPIO 18
+CS → GPIO 5
+DC → GPIO 17
+BUSY → GPIO 4
+RES → GPIO 16
+</code></pre>
+
+2. <strong>Проверьте тип дисплея в коде:</strong>
+<pre><code class="cpp">#include <GxDEPG0213BN/GxDEPG0213BN.h>
+// Это для 2.13" чёрно-белого дисплея
+// Проверьте, что это ваш дисплей
+</code></pre>
+
+3. <strong>Протестируйте дисплей отдельно:</strong>
+<pre><code class="cpp">// Загрузите пример из GxEPD
+// Убедитесь, что дисплей реагирует
+</code></pre>
+
+<h3>Проблема: "No server" на дисплее</h3>
+
+<strong>Решение:</strong>
+
+1. <strong>Проверьте URL в EEPROM:</strong>
+<pre><code class="bash"><h1>Serial Monitor дисплея должен показать:</h1>
+<h1>"Sending to: http://192.168.X.X/meteo/getlast.php"</h1>
+</code></pre>
+
+2. <strong>Проверьте доступность сервера:</strong>
+<pre><code class="bash"><h1>На машине с ESP32 сетью:</h1>
+ping 192.168.X.X  # IP сервера
+curl http://192.168.X.X/meteo/getlast.php
+</code></pre>
+
+3. <strong>Увеличьте timeout подключения:</strong>
+<pre><code class="cpp">// В коде дисплея измените:
+const uint8<em>t wifi</em>connect_timeout = 60;  // Секунды
+</code></pre>
+
+---
+
+<h2>🔍 Отладка системы</h2>
+
+<h3>Использование Serial Monitor</h3>
+
+<pre><code class="bash"><h1>Откройте Serial Monitor в Arduino IDE</h1>
+<h1>Скорость: 115200 baud</h1>
+
+<h1>Ищите эти сообщения:</h1>
+<h1>✓ "WiFi connected!" - успешное подключение</h1>
+<h1>✓ "Data sent successfully" - данные отправлены</h1>
+<h1>✓ "HTTP Response: 200" - успешный ответ сервера</h1>
+
+<h1>✗ "Failed to connect" - ошибка WiFi</h1>
+<h1>✗ "HTTP Error: 403" - ошибка API ключа</h1>
+<h1>✗ "Database error" - ошибка БД</h1>
+</code></pre>
+
+<h3>Проверка логов сервера</h3>
+
+<pre><code class="bash"><h1>Логи ошибок приложения</h1>
+cat /var/www/html/meteo/logs/error.log
+
+<h1>Логи Apache</h1>
+sudo tail -100 /var/log/apache2/error.log
+sudo tail -100 /var/log/apache2/access.log
+
+<h1>Логи MySQL</h1>
+sudo tail -100 /var/log/mysql/error.log
+</code></pre>
+
+<h3>Тестовые запросы</h3>
+
+<pre><code class="bash"><h1>Проверить сохранение данных</h1>
+curl "http://192.168.1.100/meteo/save.php?api<em>key=test&dev</em>id=1&temperatureUL=20&temperatureDOM=21"
+
+<h1>Проверить получение данных</h1>
+curl "http://192.168.1.100/meteo/getlast.php"
+
+<h1>Проверить подключение к БД</h1>
+mysql -u meteo_user -p meteo -e "SELECT COUNT(*) FROM data;"
+</code></pre>
+
+---
+
+<h2>🆘 Если ничего не помогает</h2>
+
+1. <strong>Сберите полную информацию:</strong>
+   - Версия Arduino IDE
+   - Версия платы ESP32
+   - Serial Monitor вывод (весь)
+   - Логи ошибок сервера
+   - Результат <code>ifconfig</code> на сервере
+
+2. <strong>Сбросьте всё к дефолту:</strong>
+   - Перепрограммируйте ESP32
+   - Переконфигурируйте EEPROM
+   - Перезагрузите сервер
+
+3. <strong>Создайте issue на GitHub:</strong>
+   - Приложите всю собранную информацию
+   - Опишите шаги для воспроизведения проблемы
+   - Укажите версии ПО
+
+    </div>
+</body>
+</html>

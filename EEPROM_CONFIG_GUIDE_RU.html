@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EEPROM_CONFIG_GUIDE_RU.md</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            color: #333;
+            background-color: #f9f9f9;
+        }
+        h1, h2, h3 { color: #2c3e50; margin-top: 1.5em; }
+        h1 { border-bottom: 3px solid #3498db; padding-bottom: 10px; }
+        code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+        pre { background: #f4f4f4; padding: 15px; border-radius: 5px; overflow-x: auto; }
+        table { border-collapse: collapse; width: 100%; margin: 15px 0; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        th { background: #f0f0f0; font-weight: bold; }
+        blockquote { border-left: 4px solid #3498db; padding-left: 15px; margin: 15px 0; color: #666; }
+    </style>
+</head>
+<body>
+    <div class="content">
+        <h1>Гайд по конфигурации EEPROM</h1>
+
+Этот проект требует конфигурации, хранящейся в памяти EEPROM каждого микроконтроллера ESP32. Вместо жесткого кодирования данных WiFi и URL сервера в скетче, они считываются из EEPROM при запуске.
+
+<h2>📋 Параметры конфигурации</h2>
+
+<h3>Плата датчиков (board<em>with</em>sensors<em>data</em>sent<em>to</em>the_server)</h3>
+
+| Адрес | Размер | Параметр | Пример | Описание |
+|-------|--------|----------|--------|---------|
+| 0 | 32 байта | SSID | <code>MyWiFi</code> | Имя WiFi сети |
+| 32 | 64 байта | Пароль | <code>надежный_пароль</code> | Пароль WiFi |
+| 96 | 96 байт | URL сервера | <code>http://192.168.1.100/meteo/save.php</code> | Полный URL для отправки данных |
+| 192 | 1 байт | ID устройства | <code>1</code> | Уникальный идентификатор датчика |
+| 196 | 32 байта | API ключ | <code>ваш<em>секретный</em>ключ</code> | Ключ аутентификации API |
+
+<h3>Плата дисплея (screen<em>to</em>get<em>temperatures</em>from<em>server</em>eInk)</h3>
+
+| Адрес | Размер | Параметр | Пример | Описание |
+|-------|--------|----------|--------|---------|
+| 0 | 32 байта | SSID | <code>MyWiFi</code> | Имя WiFi сети |
+| 32 | 64 байта | Пароль | <code>надежный_пароль</code> | Пароль WiFi |
+| 96 | 96 байт | URL сервера | <code>http://192.168.1.100/meteo/getlast.php</code> | Полный URL для получения данных |
+
+<h2>🔧 Способ 1: Конфигурация через Arduino IDE (Рекомендуется)</h2>
+
+<h3>Шаг 1: Создать скетч для конфигурации</h3>
+
+1. Откройте Arduino IDE
+2. Создайте новый скетч
+3. Скопируйте код ниже и замените значения на ваши:
+
+<pre><code class="cpp">#include <EEPROM.h>
+
+void setup() {
+  Serial.begin(115200);
+  delay(2000);  // Ждем инициализации serial монитора
+  
+  Serial.println("\n\n=== EEPROM Configuration Tool ===\n");
+  
+  // === КОНФИГУРАЦИЯ ДЛЯ ПЛАТЫ ДАТЧИКОВ ===
+  // Раскомментируйте для платы датчиков и измените значения
+  
+  /*
+  const char* ssid = "MyWiFi";
+  const char* password = "надежный_пароль";
+  const char* server_url = "http://192.168.1.100/meteo/save.php";
+  uint8<em>t device</em>id = 1;
+  const char* api<em>key = "ваш</em>секретный<em>ключ</em>api";
+  
+  Serial.println("Configuring Sensor Board...");
+  Serial.printf("SSID: %s\n", ssid);
+  Serial.printf("Password: %s\n", password);
+  Serial.printf("Server URL: %s\n", server_url);
+  Serial.printf("Device ID: %d\n", device_id);
+  Serial.printf("API Key: %s\n", api_key);
+  
+  EEPROM.begin(256);
+  EEPROM.writeBytes(0, (uint8_t*)ssid, 32);
+  EEPROM.writeBytes(32, (uint8_t*)password, 64);
+  EEPROM.writeBytes(96, (uint8<em>t*)server</em>url, 96);
+  EEPROM.write(192, device_id);
+  EEPROM.writeBytes(196, (uint8<em>t*)api</em>key, 32);
+  EEPROM.commit();
+  EEPROM.end();
+  
+  Serial.println("\n✓ Sensor Board EEPROM configured successfully!");
+  */
+  
+  // === КОНФИГУРАЦИЯ ДЛЯ ПЛАТЫ ДИСПЛЕЯ ===
+  // Раскомментируйте для платы дисплея и измените значения
+  
+  /*
+  const char* ssid = "MyWiFi";
+  const char* password = "надежный_пароль";
+  const char* server_url = "http://192.168.1.100/meteo/getlast.php";
+  
+  Serial.println("Configuring Display Board...");
+  Serial.printf("SSID: %s\n", ssid);
+  Serial.printf("Password: %s\n", password);
+  Serial.printf("Server URL: %s\n", server_url);
+  
+  EEPROM.begin(256);
+  EEPROM.writeBytes(0, (uint8_t*)ssid, 32);
+  EEPROM.writeBytes(32, (uint8_t*)password, 64);
+  EEPROM.writeBytes(96, (uint8<em>t*)server</em>url, 96);
+  EEPROM.commit();
+  EEPROM.end();
+  
+  Serial.println("\n✓ Display Board EEPROM configured successfully!");
+  */
+}
+
+void loop() {
+  delay(10000);
+}
+</code></pre>
+
+<h3>Шаг 2: Загрузить и выполнить</h3>
+
+1. Выберите правильную плату ESP32 (Tools → Board)
+2. Выберите COM порт устройства
+3. Раскомментируйте нужную секцию (Датчик или Дисплей)
+4. Отредактируйте значения параметров
+5. Нажмите "Upload" (Загрузить)
+6. Откройте Serial Monitor (Tools → Serial Monitor)
+7. Установите скорость 115200 baud
+8. Убедитесь, что видите сообщение "configured successfully"
+
+<h3>Шаг 3: Загрузить основной скетч</h3>
+
+После успешной конфигурации:
+1. Загрузите основной скетч (board<em>with</em>sensors... или screen<em>to</em>get...)
+2. Проверьте Serial Monitor для подтверждения конфигурации загружена
+
+<h2>🔧 Способ 2: Конфигурация через WebUI (в будущем)</h2>
+
+Веб-интерфейс для конфигурации EEPROM может быть добавлен для облегчения обновлений без перекомпиляции.
+
+<h2>⚙️ Переменные окружения для веб-части</h2>
+
+Установите эти переменные через файл <code>.env</code> или переменные окружения системы:
+
+<h3>Вариант 1: Файл .env (Рекомендуется для development)</h3>
+
+Создайте файл <code>/var/www/html/meteo/.env</code>:
+
+<pre><code class="bash">DB_HOST=localhost
+DB<em>USER=meteo</em>user
+DB<em>PASS=надежный</em>пароль
+DB_NAME=meteo
+API<em>KEY=ваш</em>секретный<em>ключ</em>api
+ENABLE_AUTH=true
+</code></pre>
+
+Затем измените владельца:
+<pre><code class="bash">chmod 600 /var/www/html/meteo/.env
+</code></pre>
+
+<h3>Вариант 2: Переменные Apache</h3>
+
+Добавьте в конфиг Apache (например, <code>/etc/apache2/sites-available/000-default.conf</code>):
+
+<pre><code class="apache"><Directory /var/www/html/meteo>
+    SetEnv DB_HOST localhost
+    SetEnv DB<em>USER meteo</em>user
+    SetEnv DB<em>PASS надежный</em>пароль
+    SetEnv DB_NAME meteo
+    SetEnv API<em>KEY ваш</em>секретный<em>ключ</em>api
+    SetEnv ENABLE_AUTH true
+</Directory>
+</code></pre>
+
+Затем перезагрузите Apache:
+<pre><code class="bash">sudo systemctl reload apache2
+</code></pre>
+
+<h3>Вариант 3: Переменные PHP-FPM</h3>
+
+Добавьте в конфиг PHP-FPM (например, <code>/etc/php/7.4/fpm/pool.d/www.conf</code>):
+
+<pre><code class="ini">env[DB_HOST] = localhost
+env[DB<em>USER] = meteo</em>user
+env[DB<em>PASS] = надежный</em>пароль
+env[DB_NAME] = meteo
+env[API<em>KEY] = ваш</em>секретный<em>ключ</em>api
+env[ENABLE_AUTH] = true
+</code></pre>
+
+Затем перезагрузите PHP-FPM:
+<pre><code class="bash">sudo systemctl reload php7.4-fpm
+</code></pre>
+
+<h2>🔐 Проверка конфигурации</h2>
+
+<h3>Проверить загрузку EEPROM на ESP32</h3>
+
+1. Откройте Serial Monitor при скорости 115200
+2. Нажмите кнопку Reset на плате
+3. Вы должны увидеть логи со строками типа:
+   - "SSID: MyWiFi" (для платы датчиков)
+   - "Server URL: http://..." (для обеих плат)
+
+<h3>Проверить подключение к веб-части</h3>
+
+<pre><code class="bash"><h1>Тестовый запрос к save.php</h1>
+curl "http://192.168.1.100/meteo/save.php?api<em>key=ваш</em>ключ&dev_id=1&temperatureUL=20&temperatureDOM=22"
+
+<h1>Результат должен быть JSON:</h1>
+<h1>{"status": "success", "message": "Data saved"}</h1>
+
+<h1>Тестовый запрос к getlast.php</h1>
+curl "http://192.168.1.100/meteo/getlast.php"
+
+<h1>Результат должен быть CSV:</h1>
+<h1>1,2024-05-08 14:30:45,21.30,5.20,+0.0,-1.5,1013.2</h1>
+</code></pre>
+
+<h2>🔒 Рекомендации по безопасности</h2>
+
+| Элемент | Рекомендация | Почему важно |
+|---------|-------------|-------------|
+| <strong>API ключ</strong> | Используйте случайные 32+ символов | Предотвращает несанкционированный доступ |
+| <strong>Пароль БД</strong> | Минимум 12 символов, спецсимволы | Защита от brute-force атак |
+| <strong>Пароль WiFi</strong> | Минимум 12 символов, WPA2/WPA3 | Предотвращает перехват трафика |
+| <strong>HTTPS</strong> | Используйте в production | Шифрование данных в транспорте |
+| <strong>Права доступа</strong> | 600 для .env файла | Только владелец может читать |
+| <strong>Резервные копии</strong> | Регулярно делайте бэкапы | Восстановление при сбое |
+
+<h2>🆘 Решение проблем</h2>
+
+<h3>Проблема: "Configuration not loaded"</h3>
+
+<strong>Причина:</strong> EEPROM не был настроен или стёрся
+
+<strong>Решение:</strong>
+1. Перезагрузите конфиг-скетч
+2. Проверьте Serial Monitor для подтверждения
+3. Перезагрузите основной скетч
+
+<h3>Проблема: "Failed to connect to WiFi"</h3>
+
+<strong>Проверьте:</strong>
+- SSID в EEPROM совпадает с именем вашей сети
+- Пароль введен без опечаток
+- Если сеть скрыта - добавьте дополнительный параметр в код
+
+<h3>Проблема: "Server connection failed"</h3>
+
+<strong>Проверьте:</strong>
+- URL сервера верен (включая http:// или https://)
+- IP адрес правильный (<code>ping 192.168.1.100</code>)
+- Сервер работает (<code>curl http://192.168.1.100/meteo/save.php</code>)
+- API ключ совпадает с переменной окружения на сервере
+
+<h3>Проблема: "401 Forbidden"</h3>
+
+<strong>Причина:</strong> API ключ неверный
+
+<strong>Решение:</strong>
+1. Проверьте API_KEY в EEPROM (для платы датчиков)
+2. Проверьте API_KEY в переменных окружения сервера
+3. Убедитесь, что ENABLE_AUTH = true в конфигурации
+
+<h2>📝 Чек-лист первого запуска</h2>
+
+- [ ] Создана база данных MySQL
+- [ ] Создан пользователь БД с правильными правами
+- [ ] PHP скрипты скопированы на сервер
+- [ ] Установлены переменные окружения
+- [ ] Первый ESP32 (датчик) настроен через EEPROM
+- [ ] Второй ESP32 (дисплей) настроен через EEPROM
+- [ ] Загружены основные скетчи на обе платы
+- [ ] Serial Monitor показывает успешное подключение
+- [ ] Данные сохраняются в БД
+- [ ] Дисплей отображает температуры
+
+    </div>
+</body>
+</html>
