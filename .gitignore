@@ -1,0 +1,43 @@
+# Configuration files with secrets
+meteo/.env
+meteo/.env.local
+meteo/config.local.php
+
+# Logs
+meteo/logs/
+*.log
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Arduino IDE
+*.o
+*.a
+*.so
+.pio/
+build/
+
+# Temporary files
+*.tmp
+*.bak
+*.backup
+
+# Database dumps (keep secure)
+*.sql.gz
+*.dump
+
+# EEPROM binaries
+*.bin
+
+# OS specific
+Thumbs.db
+.directory
+
+# Environment specific
+.env
+.env.*.php

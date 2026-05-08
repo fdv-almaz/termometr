@@ -60,7 +60,10 @@ CREATE TABLE `data` (
   `tempDOM` float DEFAULT NULL,
   `inserted` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `pressure` float DEFAULT NULL,
-  UNIQUE KEY `id` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=21242840 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+  PRIMARY KEY (`id`),
+  KEY `idx_dev_id` (`dev_id`),
+  KEY `idx_inserted` (`inserted`),
+  KEY `idx_dev_id_inserted` (`dev_id`, `inserted`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
