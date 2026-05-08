@@ -7,135 +7,138 @@
 #include <Wire.h>
 #include <SPI.h>
 #include <Adafruit_BMP280.h>
+#include <EEPROM.h>
 
 #define BMP_SCK  (13)
 #define BMP_MISO (12)
 #define BMP_MOSI (11)
 #define BMP_CS   (10)
+#define ONE_WIRE_BUS 15
 
-Adafruit_BMP280 bmp; // use I2C interface
+// EEPROM configuration addresses
+#define EEPROM_SSID_ADDR 0
+#define EEPROM_PASS_ADDR 32
+#define EEPROM_URL_ADDR 96
+#define EEPROM_DEV_ID_ADDR 192
+#define EEPROM_API_KEY_ADDR 196
+#define EEPROM_SIZE 256
+
+// Configuration structures
+struct SensorData {
+  float tempOutside;
+  float tempInside;
+  float pressure;
+  String timestamp;
+};
+
+struct Config {
+  char ssid[32];
+  char password[64];
+  char server_url[96];
+  uint8_t device_id;
+  char api_key[32];
+};
+
+Adafruit_BMP280 bmp;
 Adafruit_Sensor *bmp_temp = bmp.getTemperatureSensor();
 Adafruit_Sensor *bmp_pressure = bmp.getPressureSensor();
 
 HTTPClient http;
 
-const uint8_t tmin = 1;  // на сколько минут отправлять устройство в сон
+const uint8_t sleep_minutes = 1;
+const uint8_t wifi_timeout_seconds = 20;
+const uint8_t sensor_read_timeout_seconds = 10;
 
-const char* ssid = "Sadovaya7";          // Замените на имя вашей Wi-Fi сети
-const char* password = "shadow_warrior";  // Замените на пароль от вашей Wi-Fi сети
+unsigned long lastSensorReadTime = 0;
+const long sensor_interval = 60000;
 
-const char* baseUrl = "http://192.168.7.2/meteo/save.php"; // Замените на вашу базовую WEB-ссылку
-
-unsigned long lastCallTime = 0;
-unsigned long reboot_lastCallTime = 0;
-const long interval = 60000; // 60
-const long reboot_interval = 3600000; // 3600 секунд * 1000 миллисекунд = 1 час
-
-// Переменные для хранения динамических данных
-float temperatureUL = 0.0;
-float temperatureDOM = 0.0;
-String deviceId = "ESP32_Sensor_01";
-String dev_id = "1";
-
-char buffer[20] = "";
-
-const int oneWireBus = 15;
-OneWire oneWire(oneWireBus);
+OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature sensors(&oneWire);
 
-void setTimezone(String timezone){
-  Serial.printf("  Setting Timezone to %s\n",timezone.c_str());
-  setenv("TZ",timezone.c_str(),1);  //  Now adjust the TZ.  Clock settings are adjusted to show the new local time
+Config config;
+SensorData sensorData;
+char timeBuffer[20] = "";
+
+void setTimezone(const char* timezone) {
+  Serial.printf("Setting Timezone to %s\n", timezone);
+  setenv("TZ", timezone, 1);
   tzset();
 }
 
-String takeLocalTime(void){
+bool getLocalTime(String &timeStr) {
   struct tm timeinfo;
-  if(!getLocalTime(&timeinfo)){
-    Serial.println("Failed to obtain time 1");
-    return "failed";
+  if (!getLocalTime(&timeinfo)) {
+    Serial.println("Failed to obtain time");
+    return false;
   }
-  strftime(buffer, 20,"%H:%M:%S", &timeinfo);
-
-  return buffer;
+  strftime(timeBuffer, sizeof(timeBuffer), "%H:%M:%S", &timeinfo);
+  timeStr = String(timeBuffer);
+  return true;
 }
 
-void setup() {
-  Serial.begin(115200);
-  Serial.print("Free Heap: ");
-  Serial.println(ESP.getFreeHeap());
-  
+bool loadConfig() {
+  EEPROM.begin(EEPROM_SIZE);
+  EEPROM.readBytes(EEPROM_SSID_ADDR, config.ssid, 32);
+  EEPROM.readBytes(EEPROM_PASS_ADDR, config.password, 64);
+  EEPROM.readBytes(EEPROM_URL_ADDR, config.server_url, 96);
+  EEPROM.read(EEPROM_DEV_ID_ADDR);
+  EEPROM.readBytes(EEPROM_API_KEY_ADDR, config.api_key, 32);
+  EEPROM.end();
 
-  Serial.println("ESP32 starting up...");
-  sensors.begin();
-
-  configTime(0, 0, "europe.pool.ntp.org");
-  setTimezone("CET-1CEST,M3.5.0,M10.5.0/3");
-  String formattedTime = takeLocalTime();
-  if(formattedTime == "failed")
-  {
-    Serial.println("Set fake time");
-    ESP32Time rtc;
-    rtc.setTime(1750802400);
+  if (strlen(config.ssid) == 0) {
+    Serial.println("Warning: Configuration not set. Please update EEPROM.");
+    return false;
   }
-  Serial.print("Time: ");
-  Serial.println(formattedTime);
-  BMPinit();
+  return true;
 }
 
-void loop() {
-  String formattedTime;
-
-  // Проверяем, прошло ли достаточно времени с последнего вызова
-  if (millis() - lastCallTime >= interval)
-  {
-    lastCallTime = millis(); // Обновляем время последнего вызова
-    Serial.println("\n--- Time to send data! ---");
-
-    // --- Обновление динамических данных (пример) ---
-    // Здесь z читаю данные с  датчиков
-    sensors.requestTemperatures(); 
-    temperatureUL = sensors.getTempCByIndex(0); // улица
-    temperatureDOM = sensors.getTempCByIndex(1); // дом
-    // deviceId остается тем же, но может быть динамическим при необходимости
-    // ------------------------------------------------
-
-    Serial.print("Current Data: Temp UL=");
-    Serial.print(temperatureUL);
-    Serial.print("C, Temp DOM=");
-    Serial.print(temperatureDOM);
-    Serial.print("C, DeviceID=");
-    Serial.println(dev_id);
-
-    callUrlWithDynamicData(temperatureUL, temperatureDOM, deviceId, dev_id); // Вызываем функцию для отправки данных
-
-    Serial.println("--- Data sent, waiting for next interval ---");
+bool initBMP280() {
+  if (!bmp.begin(0x76)) {
+    Serial.println("Error: BMP280 not found. Check wiring or I2C address.");
+    return false;
   }
-//  
-//  if (millis() - reboot_lastCallTime >= reboot_interval) 
-//  {
-//    Serial.println("\n--- Time to reboot! ---");
-//    reboot_lastCallTime = millis();
-//    ESP.restart();
-//  }
-  // Здесь может выполняться другой ваш неблокирующий код
-  // Например, чтение датчиков, обработка данных, переход в спящий режим и т.д.
-  // delay(100); // Небольшая задержка, чтобы избежать "голодания" других задач
+  bmp.setSampling(Adafruit_BMP280::MODE_NORMAL,
+                  Adafruit_BMP280::SAMPLING_X2,
+                  Adafruit_BMP280::SAMPLING_X16,
+                  Adafruit_BMP280::FILTER_X16,
+                  Adafruit_BMP280::STANDBY_MS_500);
+  return true;
 }
 
-void callUrlWithDynamicData(float tempUL, float tempDOM, String devId, String dev_id) {
+bool readSensors() {
+  sensors.setWaitForConversion(false);
+  sensors.requestTemperatures();
+
+  unsigned long startTime = millis();
+  while (!sensors.isConversionAvailable(0) && (millis() - startTime) < sensor_read_timeout_seconds * 1000) {
+    delay(50);
+  }
+
+  if (!sensors.isConversionAvailable(0)) {
+    Serial.println("Sensor read timeout");
+    return false;
+  }
+
+  sensorData.tempOutside = sensors.getTempCByIndex(0);
+  sensorData.tempInside = sensors.getTempCByIndex(1);
+
   sensors_event_t temp_event, pressure_event;
   bmp_temp->getEvent(&temp_event);
   bmp_pressure->getEvent(&pressure_event);
+  sensorData.pressure = pressure_event.pressure;
 
-  // 1. Подключаемся к Wi-Fi
+  return true;
+}
+
+bool connectWiFi() {
   Serial.print("Connecting to WiFi: ");
-  Serial.println(ssid);
-  WiFi.mode(WIFI_STA); // Устанавливаем режим Station, если не установлено
-  WiFi.begin(ssid, password);
+  Serial.println(config.ssid);
 
-  int attempts = 0;
-  while (WiFi.status() != WL_CONNECTED && attempts < 20) { // Ограничиваем количество попыток
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(config.ssid, config.password);
+
+  uint8_t attempts = 0;
+  while (WiFi.status() != WL_CONNECTED && attempts < wifi_timeout_seconds) {
     delay(500);
     Serial.print(".");
     attempts++;
@@ -146,89 +149,120 @@ void callUrlWithDynamicData(float tempUL, float tempDOM, String devId, String de
     Serial.println("WiFi connected!");
     Serial.print("IP Address: ");
     Serial.println(WiFi.localIP());
+    return true;
+  }
 
-    // Формируем полную WEB-ссылку с динамическими параметрами
-    String fullUrl = String(baseUrl) + "?" +
-                     "dev_id=" + dev_id +
-                     "&time=" + takeLocalTime() +
-                     "&temperatureUL=" + String(tempUL, 1) +
-                     "&temperatureDOM=" + String(tempDOM) +
-                     "&id=" + devId + 
-                     "&press=" + String(pressure_event.pressure);
+  Serial.println("Failed to connect to WiFi");
+  return false;
+}
 
-    Serial.print("Calling URL: ");
-    Serial.println(fullUrl);
+bool sendData() {
+  String fullUrl = String(config.server_url) + "?" +
+                   "api_key=" + String(config.api_key) +
+                   "&dev_id=" + String(config.device_id) +
+                   "&time=" + sensorData.timestamp +
+                   "&temperatureUL=" + String(sensorData.tempOutside, 1) +
+                   "&temperatureDOM=" + String(sensorData.tempInside, 1) +
+                   "&press=" + String(sensorData.pressure, 1);
 
-    http.begin(fullUrl);
-    int httpCode = http.GET(); // Выполняем GET-запрос
+  Serial.print("Sending to: ");
+  Serial.println(fullUrl);
 
-    if (httpCode > 0) {
-      Serial.printf("[HTTP] GET... code: %d\n", httpCode);
-      if (httpCode == HTTP_CODE_OK) {
-        String payload = http.getString();
-        Serial.println("Server Response: " + payload);
-      }
-    } else {
-      Serial.printf("[HTTP] GET... failed, error: %s\n", http.errorToString(httpCode).c_str());
+  http.begin(fullUrl);
+  int httpCode = http.GET();
+
+  bool success = false;
+  if (httpCode > 0) {
+    Serial.printf("HTTP Response: %d\n", httpCode);
+    if (httpCode == HTTP_CODE_OK) {
+      String response = http.getString();
+      Serial.println("Response: " + response);
+      success = true;
     }
-    http.end(); // Освобождаем ресурсы
   } else {
-    Serial.println("Failed to connect to WiFi after multiple attempts.");
+    Serial.printf("HTTP Error: %s\n", http.errorToString(httpCode).c_str());
   }
 
-  // 2. Отключаемся от Wi-Fi после выполнения запроса (или попытки)
-  Serial.print("Disconnecting from WiFi...");
-  WiFi.disconnect(true); // true = отключает Wi-Fi полностью, включая память SSID
-  Serial.println(" Done.");
-
-  //getBMP();
-/*
-  Serial.println("--- SLEEP ---");
-  esp_sleep_enable_timer_wakeup(60000000*tmin);
-  esp_deep_sleep_start();  
-*/
+  http.end();
+  return success;
 }
 
-void BMPinit(void)
-{
-   unsigned status;
-  //status = bmp.begin(BMP280_ADDRESS_ALT, BMP280_CHIPID);
-  status = bmp.begin(0x76);
-  if (!status) {
-    Serial.println(F("Could not find a valid BMP280 sensor, check wiring or "
-                      "try a different address!"));
-    Serial.print("SensorID was: 0x"); Serial.println(bmp.sensorID(),16);
-    Serial.print("        ID of 0xFF probably means a bad address, a BMP 180 or BMP 085\n");
-    Serial.print("   ID of 0x56-0x58 represents a BMP 280,\n");
-    Serial.print("        ID of 0x60 represents a BME 280.\n");
-    Serial.print("        ID of 0x61 represents a BME 680.\n");
-    //while (1) delay(10);
-    return;
+void setup() {
+  Serial.begin(115200);
+  Serial.println("\n\nESP32 Thermometer Sensor starting...");
+  Serial.printf("Free Heap: %d\n", ESP.getFreeHeap());
+
+  // Initialize sensors
+  sensors.begin();
+  if (!initBMP280()) {
+    Serial.println("Warning: BMP280 initialization failed. Continuing anyway.");
   }
 
-  /* Default settings from datasheet. */
-  bmp.setSampling(Adafruit_BMP280::MODE_NORMAL,     /* Operating Mode. */
-                  Adafruit_BMP280::SAMPLING_X2,     /* Temp. oversampling */
-                  Adafruit_BMP280::SAMPLING_X16,    /* Pressure oversampling */
-                  Adafruit_BMP280::FILTER_X16,      /* Filtering. */
-                  Adafruit_BMP280::STANDBY_MS_500); /* Standby time. */
+  // Load configuration from EEPROM
+  if (!loadConfig()) {
+    Serial.println("Error: Configuration not loaded. Device will not function.");
+    Serial.println("Please update EEPROM with WiFi credentials and server URL.");
+  }
 
-  bmp_temp->printSensorDetails();
+  // Configure time
+  configTime(0, 0, "europe.pool.ntp.org");
+  setTimezone("CET-1CEST,M3.5.0,M10.5.0/3");
+
+  String timeStr;
+  if (!getLocalTime(timeStr)) {
+    Serial.println("Warning: Failed to get NTP time. Using fallback.");
+    ESP32Time rtc;
+    rtc.setTime(1750802400);
+  } else {
+    Serial.print("Time: ");
+    Serial.println(timeStr);
+  }
+
+  Serial.println("Setup complete.");
 }
 
-void getBMP(void)
-{
-  sensors_event_t temp_event, pressure_event;
-  bmp_temp->getEvent(&temp_event);
-  bmp_pressure->getEvent(&pressure_event);
-  
-  Serial.print(F("Temperature = "));
-  Serial.print(temp_event.temperature);
-  Serial.println(" *C");
+void loop() {
+  if ((millis() - lastSensorReadTime) >= sensor_interval) {
+    lastSensorReadTime = millis();
 
-  Serial.print(F("Pressure = "));
-  Serial.print(pressure_event.pressure);
-  Serial.println(" hPa");
+    Serial.println("\n--- Reading sensors ---");
 
-  Serial.println();
+    // Read sensor data
+    if (!readSensors()) {
+      Serial.println("Error: Sensor read failed.");
+      return;
+    }
+
+    // Get timestamp
+    if (!getLocalTime(sensorData.timestamp)) {
+      Serial.println("Error: Could not get timestamp.");
+      return;
+    }
+
+    Serial.printf("Data: Out=%.1f°C, In=%.1f°C, Press=%.1f hPa\n",
+                  sensorData.tempOutside,
+                  sensorData.tempInside,
+                  sensorData.pressure);
+
+    // Send data via WiFi
+    if (connectWiFi()) {
+      if (sendData()) {
+        Serial.println("Data sent successfully");
+      } else {
+        Serial.println("Data send failed");
+      }
+
+      WiFi.disconnect(true);
+      Serial.println("WiFi disconnected");
+    } else {
+      Serial.println("WiFi connection failed");
+    }
+
+    // Uncomment for deep sleep mode (saves battery)
+    // Serial.println("Entering deep sleep...");
+    // esp_sleep_enable_timer_wakeup(sleep_minutes * 60000000);
+    // esp_deep_sleep_start();
+  }
+
+  delay(100);
 }
