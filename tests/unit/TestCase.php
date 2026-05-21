@@ -41,12 +41,12 @@ abstract class TestCase extends PHPUnitTestCase {
         $queryString = http_build_query($params, '', '&');
 
         // Set up environment - use phpunit.xml environment variables
-        $dbHost = getenv('DB_HOST') ?: 'localhost';
-        $dbUser = getenv('DB_USER') ?: 'root';
-        $dbPass = getenv('DB_PASS') ?: '';
-        $dbName = getenv('DB_NAME') ?: 'meteo_test';
-        $apiKey = getenv('API_KEY') ?: 'test_api_key_12345';
-        $enableAuth = getenv('ENABLE_AUTH') ?: 'true';
+        $dbHost = (!empty(getenv('DB_HOST'))) ? getenv('DB_HOST') : 'localhost';
+        $dbUser = (!empty(getenv('DB_USER'))) ? getenv('DB_USER') : 'root';
+        $dbPass = (getenv('DB_PASS') !== false) ? getenv('DB_PASS') : '';
+        $dbName = (!empty(getenv('DB_NAME'))) ? getenv('DB_NAME') : 'meteo_test';
+        $apiKey = (!empty(getenv('API_KEY'))) ? getenv('API_KEY') : 'test_api_key_12345';
+        $enableAuth = (!empty(getenv('ENABLE_AUTH'))) ? getenv('ENABLE_AUTH') : 'true';
 
         // Create a wrapper script that will execute the endpoint
         $wrapperScript = '<?php ' . "\n";
