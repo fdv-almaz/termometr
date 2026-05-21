@@ -4,6 +4,9 @@
  * Sets up test environment and database
  */
 
+// Set timezone before any database operations
+date_default_timezone_set('Europe/Warsaw');
+
 // Set test environment variables
 putenv('DB_HOST=localhost');
 putenv('DB_USER=root');
@@ -93,11 +96,11 @@ class TestDatabase {
     }
 
     private function resetConfig() {
-        // Reset config to default values
+        // Reset config to default values (zero for tests)
         $sql = "INSERT INTO config (param_name, param_data, comment) VALUES
-                ('ULcorr', '0.5', 'Outside temperature correction'),
-                ('DOMcorr', '-0.2', 'Inside temperature correction'),
-                ('PRESScorr', '0.1', 'Pressure correction')";
+                ('ULcorr', '0', 'Outside temperature correction'),
+                ('DOMcorr', '0', 'Inside temperature correction'),
+                ('PRESScorr', '0', 'Pressure correction')";
         $this->conn->query($sql);
     }
 }

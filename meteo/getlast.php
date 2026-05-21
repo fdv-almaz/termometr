@@ -50,7 +50,7 @@ while ($row = $result->fetch_assoc()) {
 $stmt->close();
 
 // Get latest data
-$stmt = $conn->prepare("SELECT id, dev_id, tempUL, tempDOM, pressure, inserted FROM data ORDER BY id DESC LIMIT 1");
+$stmt = $conn->prepare("SELECT id, dev_id, dev_time, tempUL, tempDOM, pressure, inserted FROM data ORDER BY id DESC LIMIT 1");
 if (!$stmt) {
     if (!headers_sent()) http_response_code(500);
     echo "Error: Prepare failed";
@@ -74,7 +74,6 @@ $conn->close();
 // Apply corrections (safe arithmetic instead of eval)
 $tempUL_corrected = floatval($row['tempUL']) + $ULcorr;
 $tempDOM_corrected = floatval($row['tempDOM']) + $DOMcorr;
-$pressure_corrected = ($row['pressure'] !== null) ? floatval($row['pressure']) + $PRESScorr : 0;
 
 // Check if data is stale (older than 600 seconds)
 $inserted_time = new DateTime($row['inserted']);
@@ -86,14 +85,20 @@ if ($interval > 600) {
     $device_id = "--";
 }
 
-// Format output: device_id,timestamp,tempInside,tempOutside,corrInside,corrOutside,pressure
-printf("%s,%s,%.2f,%.2f,%+.1f,%+.1f,%.1f",
+// Format output: device_id,timestamp,tempInside,tempOutside,corrInside,corrOutside,presscorr
+// Format correction values: use appropriate format for zero values
+$corrInsideStr = ($DOMcorr == 0) ? '0' : sprintf('%+.6f', $DOMcorr);
+$corrOutsideStr = ($ULcorr == 0) ? '0' : sprintf('%+.6f', $ULcorr);
+// For pressure, output empty string if it's NULL in the database, else the correction value
+$presscorrStr = ($row['pressure'] === null) ? '' : (($PRESScorr == 0) ? '0' : sprintf('%+.6f', $PRESScorr));
+
+printf("%s,%s,%.2f,%.2f,%s,%s,%s",
     $device_id,
-    $row['inserted'],
+    $row['dev_time'],
     $tempDOM_corrected,
     $tempUL_corrected,
-    $DOMcorr,
-    $ULcorr,
-    $pressure_corrected
+    $corrInsideStr,
+    $corrOutsideStr,
+    $presscorrStr
 );
 ?>

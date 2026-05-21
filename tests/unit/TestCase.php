@@ -40,16 +40,18 @@ abstract class TestCase extends PHPUnitTestCase {
         // Build query string
         $queryString = http_build_query($params, '', '&');
 
-        // Set up environment - use phpunit.xml environment variables
-        $dbHost = (!empty(getenv('DB_HOST'))) ? getenv('DB_HOST') : 'localhost';
-        $dbUser = (!empty(getenv('DB_USER'))) ? getenv('DB_USER') : 'root';
+        // Set up environment from phpunit.xml or use defaults
+        // NOTE: getenv() can return false if not set, so we need explicit fallback
+        $dbHost = (getenv('DB_HOST') !== false) ? getenv('DB_HOST') : 'localhost';
+        $dbUser = (getenv('DB_USER') !== false) ? getenv('DB_USER') : 'root';
         $dbPass = (getenv('DB_PASS') !== false) ? getenv('DB_PASS') : '';
-        $dbName = (!empty(getenv('DB_NAME'))) ? getenv('DB_NAME') : 'meteo_test';
-        $apiKey = (!empty(getenv('API_KEY'))) ? getenv('API_KEY') : 'test_api_key_12345';
-        $enableAuth = (!empty(getenv('ENABLE_AUTH'))) ? getenv('ENABLE_AUTH') : 'true';
+        $dbName = (getenv('DB_NAME') !== false) ? getenv('DB_NAME') : 'meteo_test';
+        $apiKey = (getenv('API_KEY') !== false) ? getenv('API_KEY') : 'test_api_key_12345';
+        $enableAuth = (getenv('ENABLE_AUTH') !== false) ? getenv('ENABLE_AUTH') : 'true';
 
         // Create a wrapper script that will execute the endpoint
         $wrapperScript = '<?php ' . "\n";
+        $wrapperScript .= "date_default_timezone_set('Europe/Warsaw'); " . "\n";
         $wrapperScript .= sprintf('putenv(%s); ', var_export("DB_HOST=$dbHost", true)) . "\n";
         $wrapperScript .= sprintf('putenv(%s); ', var_export("DB_USER=$dbUser", true)) . "\n";
         $wrapperScript .= sprintf('putenv(%s); ', var_export("DB_PASS=$dbPass", true)) . "\n";
@@ -133,7 +135,7 @@ abstract class TestCase extends PHPUnitTestCase {
             'tempOutside' => floatval($parts[3] ?? 0),
             'corrInside' => floatval($parts[4] ?? 0),
             'corrOutside' => floatval($parts[5] ?? 0),
-            'pressure' => floatval($parts[6] ?? 0)
+            'pressure' => ($parts[6] ?? '') === '' ? '' : floatval($parts[6] ?? 0)
         ];
     }
 }
