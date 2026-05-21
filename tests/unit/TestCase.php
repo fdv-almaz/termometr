@@ -40,21 +40,22 @@ abstract class TestCase extends PHPUnitTestCase {
         // Build query string
         $queryString = http_build_query($params, '', '&');
 
-        // Set up environment
-        $env = [
-            'DB_HOST' => getenv('DB_HOST'),
-            'DB_USER' => getenv('DB_USER'),
-            'DB_PASS' => getenv('DB_PASS'),
-            'DB_NAME' => getenv('DB_NAME'),
-            'API_KEY' => getenv('API_KEY'),
-            'ENABLE_AUTH' => getenv('ENABLE_AUTH'),
-        ];
+        // Set up environment - use phpunit.xml environment variables
+        $dbHost = getenv('DB_HOST') ?: 'localhost';
+        $dbUser = getenv('DB_USER') ?: 'root';
+        $dbPass = getenv('DB_PASS') ?: '';
+        $dbName = getenv('DB_NAME') ?: 'meteo_test';
+        $apiKey = getenv('API_KEY') ?: 'test_api_key_12345';
+        $enableAuth = getenv('ENABLE_AUTH') ?: 'true';
 
         // Create a wrapper script that will execute the endpoint
         $wrapperScript = '<?php ' . "\n";
-        foreach ($env as $key => $value) {
-            $wrapperScript .= sprintf('putenv(%s); ', var_export("$key=$value", true)) . "\n";
-        }
+        $wrapperScript .= sprintf('putenv(%s); ', var_export("DB_HOST=$dbHost", true)) . "\n";
+        $wrapperScript .= sprintf('putenv(%s); ', var_export("DB_USER=$dbUser", true)) . "\n";
+        $wrapperScript .= sprintf('putenv(%s); ', var_export("DB_PASS=$dbPass", true)) . "\n";
+        $wrapperScript .= sprintf('putenv(%s); ', var_export("DB_NAME=$dbName", true)) . "\n";
+        $wrapperScript .= sprintf('putenv(%s); ', var_export("API_KEY=$apiKey", true)) . "\n";
+        $wrapperScript .= sprintf('putenv(%s); ', var_export("ENABLE_AUTH=$enableAuth", true)) . "\n";
         $wrapperScript .= sprintf('$_GET = %s; ', var_export($params, true)) . "\n";
         $wrapperScript .= sprintf('$_SERVER["REQUEST_METHOD"] = %s; ', var_export($method, true)) . "\n";
         $wrapperScript .= 'ob_start(); ' . "\n";
