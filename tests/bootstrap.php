@@ -49,6 +49,8 @@ class TestDatabase {
     }
 
     public function getConnection() {
+        // Ensure timezone is set for database connection
+        $this->conn->query("SET SESSION time_zone='+02:00'");
         return $this->conn;
     }
 
@@ -87,6 +89,9 @@ class TestDatabase {
                 $result->free();
             }
         }
+
+        // Set MySQL timezone to match PHP timezone
+        $this->conn->query("SET SESSION time_zone='+02:00'");
     }
 
     public function truncateData() {

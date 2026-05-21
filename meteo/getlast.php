@@ -17,6 +17,7 @@ if ($conn->connect_error) {
 }
 
 $conn->set_charset("utf8mb4");
+$conn->query("SET SESSION time_zone='+02:00'");
 
 // Get configuration parameters
 $stmt = $conn->prepare("SELECT param_name, param_data FROM config WHERE param_name IN ('ULcorr', 'DOMcorr', 'PRESScorr')");

@@ -58,6 +58,7 @@ if ($conn->connect_error) {
 }
 
 $conn->set_charset("utf8mb4");
+$conn->query("SET SESSION time_zone='+02:00'");
 
 // Use prepared statement to prevent SQL injection
 $stmt = $conn->prepare("INSERT INTO data (dev_id, dev_time, tempUL, tempDOM, pressure) VALUES (?, ?, ?, ?, ?)");
