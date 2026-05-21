@@ -225,7 +225,7 @@ class ApiWorkflowTest extends TestCase {
         $row2 = $result2->fetch_assoc();
         $count2 = $row2['count'];
 
-        $this->assertGreater($count1, 0);
+        $this->assertGreaterThan(0, $count1);
         $this->assertEquals(0, $count2);
     }
 

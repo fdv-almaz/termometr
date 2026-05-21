@@ -38,7 +38,7 @@ class GetLastEndpointTest extends TestCase {
         $csvData = trim($response['output']);
 
         // Format: device_id,timestamp,tempInside,tempOutside,corrInside,corrOutside,pressure
-        $parts = str_getcsv($csvData);
+        $parts = str_getcsv($csvData, ',', '"', '\\');
 
         $this->assertEquals(7, count($parts), 'CSV should have 7 fields');
         $this->assertEquals('5', $parts[0]);  // device_id
@@ -187,7 +187,7 @@ class GetLastEndpointTest extends TestCase {
         $tempDOM = 22.0;
         $pressure = 1014.0;
 
-        $stmt->bind_param("isdd", $devId, $devTime, $tempUL, $tempDOM, $pressure);
+        $stmt->bind_param("isddd", $devId, $devTime, $tempUL, $tempDOM, $pressure);
         $stmt->execute();
 
         $response = $this->makeApiRequest('getlast.php', []);

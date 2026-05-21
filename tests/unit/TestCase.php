@@ -67,6 +67,8 @@ abstract class TestCase extends PHPUnitTestCase {
 
         try {
             $output = shell_exec('php ' . escapeshellarg($tmpFile) . ' 2>&1');
+            // Ensure output is always a string (not null)
+            $output = $output === null ? '' : $output;
             return [
                 'output' => $output,
                 'json' => json_decode($output, true)
