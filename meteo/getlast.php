@@ -1,14 +1,16 @@
 <?php
 require_once 'db.php';
 
-header('Content-Type: text/plain; charset=utf-8');
+if (!headers_sent()) {
+    header('Content-Type: text/plain; charset=utf-8');
+}
 
 date_default_timezone_set('Europe/Warsaw');
 
 // Database connection
 $conn = new mysqli($config['db_host'], $config['db_user'], $config['db_pass'], $config['db_name']);
 if ($conn->connect_error) {
-    http_response_code(500);
+    if (!headers_sent()) http_response_code(500);
     echo "Error: Database connection failed";
     error_log("Database connection error: " . $conn->connect_error);
     exit;
@@ -19,7 +21,7 @@ $conn->set_charset("utf8mb4");
 // Get configuration parameters
 $stmt = $conn->prepare("SELECT param_name, param_data FROM config WHERE param_name IN ('ULcorr', 'DOMcorr', 'PRESScorr')");
 if (!$stmt) {
-    http_response_code(500);
+    if (!headers_sent()) http_response_code(500);
     echo "Error: Prepare failed";
     error_log("Prepare failed: " . $conn->error);
     exit;
@@ -50,7 +52,7 @@ $stmt->close();
 // Get latest data
 $stmt = $conn->prepare("SELECT id, dev_id, tempUL, tempDOM, pressure, inserted FROM data ORDER BY id DESC LIMIT 1");
 if (!$stmt) {
-    http_response_code(500);
+    if (!headers_sent()) http_response_code(500);
     echo "Error: Prepare failed";
     error_log("Prepare failed: " . $conn->error);
     exit;
@@ -60,7 +62,7 @@ $stmt->execute();
 $result = $stmt->get_result();
 
 if ($result->num_rows === 0) {
-    http_response_code(404);
+    if (!headers_sent()) http_response_code(404);
     echo "Error: No data found";
     exit;
 }

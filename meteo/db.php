@@ -9,13 +9,18 @@ $config = array(
 
 // API Configuration
 $api_key_env = getenv('API_KEY');
-$enable_auth = (bool)getenv('ENABLE_AUTH') ?: true;
+$enable_auth_env = getenv('ENABLE_AUTH');
+$enable_auth = $enable_auth_env === false ? true : strtolower($enable_auth_env) !== 'false';
 
 // Validate API key is set when authentication is enabled
 if ($enable_auth && empty($api_key_env)) {
   error_log("CRITICAL: API_KEY environment variable must be set when ENABLE_AUTH is enabled");
-  http_response_code(500);
-  echo json_encode(['status' => 'error', 'message' => 'Server configuration error']);
+  if (!headers_sent()) http_response_code(500);
+  $error_msg = 'CRITICAL: API_KEY environment variable must be set when ENABLE_AUTH is enabled';
+  echo json_encode(['status' => 'error', 'message' => $error_msg]);
+  if (php_sapi_name() === 'cli') {
+    throw new RuntimeException($error_msg);
+  }
   exit;
 }
 
@@ -30,10 +35,10 @@ $api_config = array(
 error_reporting(E_ALL);
 ini_set('display_errors', 0);
 ini_set('log_errors', 1);
-ini_set('error_log', dirname(__DIR__) . '/logs/error.log');
+ini_set('error_log', __DIR__ . '/logs/error.log');
 
 // Create logs directory if not exists
-$log_dir = dirname(__DIR__) . '/logs';
+$log_dir = __DIR__ . '/logs';
 if (!is_dir($log_dir)) {
   mkdir($log_dir, 0755, true);
 }
