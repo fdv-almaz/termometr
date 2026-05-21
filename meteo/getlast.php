@@ -1,25 +1,39 @@
 <?php
+// Set error handling before anything else
+set_error_handler(function($errno, $errstr, $errfile, $errline) {
+    error_log("PHP Error [$errno]: $errstr in $errfile:$errline");
+    if (!headers_sent()) {
+        http_response_code(500);
+        header('Content-Type: application/json');
+    }
+    echo json_encode(['status' => 'error', 'message' => 'Internal server error']);
+    exit;
+}, E_ALL);
+
 require_once 'db.php';
 
-header('Content-Type: text/plain; charset=utf-8');
+if (!headers_sent()) {
+    header('Content-Type: text/plain; charset=utf-8');
+}
 
 date_default_timezone_set('Europe/Warsaw');
 
 // Database connection
 $conn = new mysqli($config['db_host'], $config['db_user'], $config['db_pass'], $config['db_name']);
 if ($conn->connect_error) {
-    http_response_code(500);
+    if (!headers_sent()) http_response_code(500);
     echo "Error: Database connection failed";
     error_log("Database connection error: " . $conn->connect_error);
     exit;
 }
 
 $conn->set_charset("utf8mb4");
+$conn->query("SET SESSION time_zone='+02:00'");
 
 // Get configuration parameters
 $stmt = $conn->prepare("SELECT param_name, param_data FROM config WHERE param_name IN ('ULcorr', 'DOMcorr', 'PRESScorr')");
 if (!$stmt) {
-    http_response_code(500);
+    if (!headers_sent()) http_response_code(500);
     echo "Error: Prepare failed";
     error_log("Prepare failed: " . $conn->error);
     exit;
@@ -48,9 +62,9 @@ while ($row = $result->fetch_assoc()) {
 $stmt->close();
 
 // Get latest data
-$stmt = $conn->prepare("SELECT id, dev_id, tempUL, tempDOM, pressure, inserted FROM data ORDER BY id DESC LIMIT 1");
+$stmt = $conn->prepare("SELECT id, dev_id, dev_time, tempUL, tempDOM, pressure, inserted FROM data ORDER BY id DESC LIMIT 1");
 if (!$stmt) {
-    http_response_code(500);
+    if (!headers_sent()) http_response_code(500);
     echo "Error: Prepare failed";
     error_log("Prepare failed: " . $conn->error);
     exit;
@@ -60,7 +74,7 @@ $stmt->execute();
 $result = $stmt->get_result();
 
 if ($result->num_rows === 0) {
-    http_response_code(404);
+    if (!headers_sent()) http_response_code(404);
     echo "Error: No data found";
     exit;
 }
@@ -72,7 +86,6 @@ $conn->close();
 // Apply corrections (safe arithmetic instead of eval)
 $tempUL_corrected = floatval($row['tempUL']) + $ULcorr;
 $tempDOM_corrected = floatval($row['tempDOM']) + $DOMcorr;
-$pressure_corrected = ($row['pressure'] !== null) ? floatval($row['pressure']) + $PRESScorr : 0;
 
 // Check if data is stale (older than 600 seconds)
 $inserted_time = new DateTime($row['inserted']);
@@ -84,14 +97,20 @@ if ($interval > 600) {
     $device_id = "--";
 }
 
-// Format output: device_id,timestamp,tempInside,tempOutside,corrInside,corrOutside,pressure
-printf("%s,%s,%.2f,%.2f,%+.1f,%+.1f,%.1f",
+// Format output: device_id,timestamp,tempInside,tempOutside,corrInside,corrOutside,presscorr
+// Format correction values: use appropriate format for zero values
+$corrInsideStr = ($DOMcorr == 0) ? '0' : sprintf('%+.6f', $DOMcorr);
+$corrOutsideStr = ($ULcorr == 0) ? '0' : sprintf('%+.6f', $ULcorr);
+// For pressure, output empty string if it's NULL in the database, else the correction value
+$presscorrStr = ($row['pressure'] === null) ? '' : (($PRESScorr == 0) ? '0' : sprintf('%+.6f', $PRESScorr));
+
+printf("%s,%s,%.2f,%.2f,%s,%s,%s",
     $device_id,
-    $row['inserted'],
+    $row['dev_time'],
     $tempDOM_corrected,
     $tempUL_corrected,
-    $DOMcorr,
-    $ULcorr,
-    $pressure_corrected
+    $corrInsideStr,
+    $corrOutsideStr,
+    $presscorrStr
 );
 ?>

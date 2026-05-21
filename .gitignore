@@ -5,6 +5,7 @@ meteo/config.local.php
 
 # Logs
 meteo/logs/
+tests/logs/
 *.log
 
 # IDE and editor files
@@ -41,3 +42,16 @@ Thumbs.db
 # Environment specific
 .env
 .env.*.php
+
+# Test files and coverage
+coverage/
+.phpunit.cache/
+phpunit.xml.bak
+
+# Composer
+vendor/
+composer.lock
+
+# Node (if used in future)
+node_modules/
+package-lock.json
