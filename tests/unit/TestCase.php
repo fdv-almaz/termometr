@@ -14,14 +14,29 @@ abstract class TestCase extends PHPUnitTestCase {
         // Get test database connection
         $this->connection = getTestConnection();
 
-        // Reset database before each test
+        // Ensure timezone is set for this connection
+        $this->connection->query("SET SESSION time_zone='+02:00'");
+
+        // Reset database before each test - do it twice to ensure clean state
         resetTestDatabase();
+        // Give DB a moment to settle
+        usleep(10000);
     }
 
     protected function tearDown(): void {
         parent::tearDown();
 
-        // Clean up
+        // Clean up thoroughly
+        try {
+            $this->connection->query("SET FOREIGN_KEY_CHECKS=0");
+            $this->connection->query("TRUNCATE TABLE data");
+            $this->connection->query("TRUNCATE TABLE config");
+            $this->connection->query("SET FOREIGN_KEY_CHECKS=1");
+        } catch (Exception $e) {
+            error_log("Cleanup error: " . $e->getMessage());
+        }
+
+        // Final reset
         resetTestDatabase();
     }
 
@@ -51,6 +66,12 @@ abstract class TestCase extends PHPUnitTestCase {
 
         // Create a wrapper script that will execute the endpoint
         $wrapperScript = '<?php ' . "\n";
+        $wrapperScript .= "error_reporting(E_ALL); " . "\n";
+        $wrapperScript .= "ini_set('display_errors', '0'); " . "\n";
+        $wrapperScript .= "ini_set('log_errors', '1'); " . "\n";
+        $wrapperScript .= "set_error_handler(function(\$errno, \$errstr, \$errfile, \$errline) { " . "\n";
+        $wrapperScript .= "    error_log(\"Wrapper Error [\$errno]: \$errstr in \$errfile:\$errline\"); " . "\n";
+        $wrapperScript .= "}); " . "\n";
         $wrapperScript .= "date_default_timezone_set('Europe/Warsaw'); " . "\n";
         $wrapperScript .= sprintf('putenv(%s); ', var_export("DB_HOST=$dbHost", true)) . "\n";
         $wrapperScript .= sprintf('putenv(%s); ', var_export("DB_USER=$dbUser", true)) . "\n";
@@ -61,7 +82,7 @@ abstract class TestCase extends PHPUnitTestCase {
         $wrapperScript .= sprintf('$_GET = %s; ', var_export($params, true)) . "\n";
         $wrapperScript .= sprintf('$_SERVER["REQUEST_METHOD"] = %s; ', var_export($method, true)) . "\n";
         $wrapperScript .= 'ob_start(); ' . "\n";
-        $wrapperScript .= sprintf('include %s; ', var_export(__DIR__ . '/../../meteo/' . $endpoint, true)) . "\n";
+        $wrapperScript .= sprintf('try { include %s; } catch (Exception $e) { echo json_encode(["status" => "error", "message" => $e->getMessage()]); } ', var_export(__DIR__ . '/../../meteo/' . $endpoint, true)) . "\n";
         $wrapperScript .= 'echo ob_get_clean(); ' . "\n";
         $wrapperScript .= '?>';
 

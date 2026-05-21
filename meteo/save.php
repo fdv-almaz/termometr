@@ -1,4 +1,15 @@
 <?php
+// Set error handling before anything else
+set_error_handler(function($errno, $errstr, $errfile, $errline) {
+    error_log("PHP Error [$errno]: $errstr in $errfile:$errline");
+    if (!headers_sent()) {
+        http_response_code(500);
+        header('Content-Type: application/json');
+    }
+    echo json_encode(['status' => 'error', 'message' => 'Internal server error']);
+    exit;
+}, E_ALL);
+
 require_once 'db.php';
 
 if (!headers_sent()) {

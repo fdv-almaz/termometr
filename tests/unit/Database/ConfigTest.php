@@ -13,6 +13,18 @@ class ConfigTest extends TestCase {
         // Don't call parent setUp as we test configuration directly
     }
 
+    protected function tearDown(): void {
+        // Reset all environment variables to their test defaults
+        putenv('DB_HOST=localhost');
+        putenv('DB_USER=root');
+        putenv('DB_PASS=');
+        putenv('DB_NAME=meteo_test');
+        putenv('API_KEY=test_api_key_12345');
+        putenv('ENABLE_AUTH=true');
+
+        parent::tearDown();
+    }
+
     /**
      * Test API_KEY from environment variable is loaded
      */
