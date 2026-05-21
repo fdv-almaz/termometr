@@ -8,9 +8,20 @@ $config = array(
 );
 
 // API Configuration
+$api_key_env = getenv('API_KEY');
+$enable_auth = (bool)getenv('ENABLE_AUTH') ?: true;
+
+// Validate API key is set when authentication is enabled
+if ($enable_auth && empty($api_key_env)) {
+  error_log("CRITICAL: API_KEY environment variable must be set when ENABLE_AUTH is enabled");
+  http_response_code(500);
+  echo json_encode(['status' => 'error', 'message' => 'Server configuration error']);
+  exit;
+}
+
 $api_config = array(
-  'api_key' => getenv('API_KEY') ?: 'change_this_key_in_production',
-  'enable_auth' => (bool)getenv('ENABLE_AUTH') ?: true,
+  'api_key' => $api_key_env ?: '',
+  'enable_auth' => $enable_auth,
   'max_temp_range' => array('min' => -50, 'max' => 100),
   'max_pressure_range' => array('min' => 300, 'max' => 1200),
 );

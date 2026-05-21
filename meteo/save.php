@@ -6,7 +6,7 @@ header('Content-Type: application/json');
 // Authenticate API key
 if ($api_config['enable_auth']) {
     $provided_key = $_GET['api_key'] ?? '';
-    if ($provided_key !== $api_config['api_key']) {
+    if (!hash_equals($api_config['api_key'], $provided_key)) {
         http_response_code(403);
         echo json_encode(['status' => 'error', 'message' => 'Forbidden']);
         exit;
@@ -64,11 +64,11 @@ if (!$stmt) {
     exit;
 }
 
-$stmt->bind_param("isdd", $dev_id, $dev_time, $tempUL, $tempDOM);
 if ($press !== null) {
     $stmt->bind_param("isddd", $dev_id, $dev_time, $tempUL, $tempDOM, $press);
 } else {
-    $stmt->bind_param("isdd", $dev_id, $dev_time, $tempUL, $tempDOM);
+    $press = null;
+    $stmt->bind_param("isddd", $dev_id, $dev_time, $tempUL, $tempDOM, $press);
 }
 
 if ($stmt->execute()) {
